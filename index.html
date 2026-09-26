@@ -127,8 +127,7 @@
             </div>
           </div>
 
-          <p id="sortNoticeText" class="text-[11px] text-gray-500 mb-2 italic">Showing responses in order of submission time.</p>
-          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[400px]"></ul>
+          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[420px]"></ul>
         </div>
 
         <!-- RIGHT HALF: Question Selectors, Classroom Display & Camera -->
@@ -183,17 +182,21 @@
             </div>
           </div>
 
-          <!-- Camera Controls & Audio Toggle -->
-          <div class="mb-3 flex items-center space-x-2">
-            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition">
+          <!-- Camera Controls, Audio Toggle & Overwrite Switch -->
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
               ▶️ Start Camera
             </button>
-            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition">
+            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
               ⏹️ Stop Camera
             </button>
             <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700" title="Toggle audio feedback on scan">
               🔔 Beep: ON
             </button>
+            <div class="flex items-center space-x-1.5 bg-gray-100 p-1.5 rounded border border-gray-300">
+              <input type="checkbox" id="chkAllowOverwrite" checked class="rounded text-blue-600 focus:ring-0 cursor-pointer">
+              <label for="chkAllowOverwrite" class="text-xs font-bold text-gray-700 cursor-pointer" title="Allow students to change and overwrite their previous scan for this question">Allow Overwrite</label>
+            </div>
           </div>
 
           <!-- SCANNER CONTAINER -->
@@ -362,7 +365,7 @@
       <div class="flex justify-between items-center mb-3">
         <div>
           <h2 class="text-md font-bold text-gray-800">Student Cards & Activation</h2>
-          <p class="text-xs text-gray-500">Cards show ONLY Card #, QR Code, and ABCD letter markings on each side.</p>
+          <p class="text-xs text-gray-500">Cards show ONLY Card #, QR Code, and ABCD letter markings (A Top, B Left, C Bottom, D Right).</p>
         </div>
         <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-2 rounded shadow">
           🖨️ Print Cards (1 per Page - Pure Card View)
@@ -390,7 +393,7 @@
     let videoStream = null;
     let isScannerRunning = false;
     let scanAnimationId = null;
-    let scannedCache = new Set();
+    let scannedCache = new Map(); // studentId -> selectedAnswer
     let currentActiveQId = "";
     let isUserSelecting = false;
     let revealedStudents = new Set();
@@ -688,6 +691,7 @@
 
       isUserSelecting = true;
       revealCorrect = false;
+      scannedCache.clear(); // Reset local response cache for new question
       document.getElementById('explanationBox').classList.add('hidden');
       updateActiveQuestionUI(qId);
       resetTimer();
@@ -781,11 +785,15 @@
       return stats;
     }
 
-    /* FIX 1: HIDE OVERALL SCORE UNTIL REVEALED */
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
+
+      // Populate local scan cache from server state
+      validLogs.forEach(l => {
+        scannedCache.set(String(l.studentId), l.selectedAnswer);
+      });
 
       // Update Response Count Badge
       document.getElementById('responseCountBadge').innerText = `${validLogs.length}/${activeStudents.length}`;
@@ -836,10 +844,7 @@
         };
       });
 
-      let noticeText = document.getElementById('sortNoticeText');
-
       if (revealAll) {
-        noticeText.innerText = "🏆 Automatically ranked by overall score and correctness.";
         displayList.sort((a, b) => {
           let aIsCorrect = a.isCorrect === 'Correct' ? 1 : 0;
           let bIsCorrect = b.isCorrect === 'Correct' ? 1 : 0;
@@ -849,7 +854,6 @@
           return 0;
         });
       } else {
-        noticeText.innerText = "⚡ Showing responses in order of quickness (submission time).";
         displayList.reverse(); 
       }
 
@@ -951,20 +955,33 @@
       }).join('');
     }
 
+    /* ENHANCED CSV EXPORT WITH FULL DETAILS & EXPLANATIONS */
     function exportToCSV() {
       let logs = appData.allLogs || [];
       if (logs.length === 0) return alert("No history data to export.");
 
-      let csvContent = "data:text/csv;charset=utf-8,Student ID,Student Name,Question ID,Selected Answer,Is Correct\n";
+      let qMap = {};
+      (appData.questions || []).forEach(q => {
+        qMap[String(q.id)] = q;
+      });
+
+      let csvContent = "data:text/csv;charset=utf-8,Folder,Question ID,Question Text,Student ID,Student Name,Selected Answer,Correct Answer,Is Correct,Explanation\n";
+      
       logs.forEach(l => {
-        let name = getStudentNameById(l.studentId).replace(/,/g, '');
-        csvContent += `${l.studentId},"${name}",${l.questionId},${l.selectedAnswer},${l.isCorrect}\n`;
+        let q = qMap[String(l.questionId)] || {};
+        let folder = (q.folder || "General").replace(/"/g, '""');
+        let qText = (q.text || "").replace(/"/g, '""');
+        let sName = getStudentNameById(l.studentId).replace(/"/g, '""');
+        let correctAns = q.correct || "";
+        let explanation = (q.explanation || "").replace(/"/g, '""');
+
+        csvContent += `"${folder}",${l.questionId},"${qText}",${l.studentId},"${sName}",${l.selectedAnswer},${correctAns},${l.isCorrect},"${explanation}"\n`;
       });
 
       let encodedUri = encodeURI(csvContent);
       let link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `plickers_report_${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute("download", `plickers_detailed_report_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1206,7 +1223,7 @@
       });
     }
 
-    /* FIX 2: RENDER CLEAN CARDS WITH ABCD MARGINS & NO NAMES */
+    /* CARD DISPLAY WITH SWAPPED SIDES: B ON LEFT, D ON RIGHT */
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -1230,11 +1247,11 @@
             <!-- TOP: A -->
             <div class="font-extrabold text-sm text-black">A</div>
             <div class="flex justify-between items-center w-full my-1">
-              <!-- LEFT: D -->
-              <span class="font-extrabold text-sm text-black pr-1">D</span>
+              <!-- LEFT: B -->
+              <span class="font-extrabold text-sm text-black pr-1">B</span>
               <div id="card-qr-${s.id}" class="flex justify-center items-center"></div>
-              <!-- RIGHT: B -->
-              <span class="font-extrabold text-sm text-black pl-1">B</span>
+              <!-- RIGHT: D -->
+              <span class="font-extrabold text-sm text-black pl-1">D</span>
             </div>
             <!-- BOTTOM: C -->
             <div class="font-extrabold text-sm text-black">C</div>
@@ -1250,7 +1267,7 @@
       renderStudentCards();
     }
 
-    /* FIX 2: PRINT CARDS WITH ABCD MARGINS & NO NAMES */
+    /* PRINT CARDS WITH SWAPPED SIDES: B ON LEFT, D ON RIGHT */
     function printActiveCards() {
       let printContainer = document.getElementById('printArea');
       printContainer.innerHTML = '';
@@ -1272,12 +1289,12 @@
             CARD #${s.id}
           </div>
           
-          <div style="border: 6px solid black; padding: 1.5rem; background: white; border-radius: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 450px; height: 450px;">
+          <div style="border: 6px solid black; padding: 1.5rem; background: white; border-radius: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-between; width: 450px; height: 450px;">
             <div style="font-size: 2.5rem; font-weight: 900;">A</div>
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <span style="font-size: 2.5rem; font-weight: 900;">D</span>
-              <div id="print-qr-${s.id}"></div>
               <span style="font-size: 2.5rem; font-weight: 900;">B</span>
+              <div id="print-qr-${s.id}"></div>
+              <span style="font-size: 2.5rem; font-weight: 900;">D</span>
             </div>
             <div style="font-size: 2.5rem; font-weight: 900;">C</div>
           </div>
@@ -1320,13 +1337,22 @@
       }
     }
 
+    /* FULL CAMERA CLOSURE */
     async function stopScanner() {
       isScannerRunning = false;
-      if (scanAnimationId) cancelAnimationFrame(scanAnimationId);
+      if (scanAnimationId) {
+        cancelAnimationFrame(scanAnimationId);
+        scanAnimationId = null;
+      }
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;
       }
+      const video = document.getElementById('webcam-video');
+      video.srcObject = null;
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
     function tickScanner() {
@@ -1397,20 +1423,27 @@
       let angle = Math.atan2(dy, dx) * (180 / Math.PI);
       if (angle < 0) angle += 360;
 
-      // Map Angle Segment to Choice (A, B, C, D)
+      /* UPDATED MAPPING TO REFLECT SWAPPED SIDES: A Top, B Left, C Bottom, D Right */
       let selectedAnswer = "A";
       if (angle >= 45 && angle < 135) {
-        selectedAnswer = "B";
+        selectedAnswer = "D";
       } else if (angle >= 135 && angle < 225) {
         selectedAnswer = "C";
       } else if (angle >= 225 && angle < 315) {
-        selectedAnswer = "D";
+        selectedAnswer = "B";
       }
 
-      // Prevent Rapid Duplicates
-      let cacheKey = `${questionId}-${studentId}-${selectedAnswer}`;
-      if (scannedCache.has(cacheKey)) return; 
-      scannedCache.add(cacheKey);
+      // Overwrite Check Control
+      let allowOverwrite = document.getElementById('chkAllowOverwrite').checked;
+      let existingAns = scannedCache.get(studentId);
+
+      if (existingAns) {
+        if (!allowOverwrite) return; // Ignore new scan if overwriting is disabled
+        if (existingAns === selectedAnswer) return; // Ignore duplicate scans of the exact same answer
+      }
+
+      // Record / Update response cache
+      scannedCache.set(studentId, selectedAnswer);
 
       playBeepSound();
       showScanIndicator();
@@ -1429,7 +1462,6 @@
       }).then(() => syncState()).catch(err => console.error("Error saving scan:", err));
     }
 
-    /* FIX 3: ENUMERATE NEW FOLDERS STARTING FROM 1 */
     function submitBulk() {
       let rawText = document.getElementById('bulkInput').value.trim();
       let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
