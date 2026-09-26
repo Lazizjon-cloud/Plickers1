@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
-  <div class="container mx-auto p-3 max-w-2xl">
+  <div class="container mx-auto p-3 max-w-6xl">
     
     <!-- Top Navigation -->
     <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
@@ -25,60 +25,62 @@
     </header>
 
     <!-- TAB 1: SCANNER & PROJECTOR DISPLAY -->
-    <div id="tab-scanner" class="bg-white p-4 rounded-lg shadow-md mb-4">
+    <div id="tab-scanner" class="mb-4">
       
-      <!-- Folder & Question Selectors -->
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Folder Filter:</label>
-          <select id="folderSelect" onchange="onFolderFilterChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+      <!-- GRID LAYOUT: Left Half (Responses) | Right Half (Question & Camera Controls) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- LEFT HALF: Live Student Responses -->
+        <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
+          <h3 class="font-bold text-sm text-gray-800 mb-2 border-b pb-2 flex items-center justify-between">
+            <span>Live Student Responses</span>
+            <span class="text-xs font-normal text-gray-500">Real-time sync</span>
+          </h3>
+          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[500px]"></ul>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Select Question:</label>
-          <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+
+        <!-- RIGHT HALF: Question Selectors, Classroom Display & Camera -->
+        <div class="bg-white p-4 rounded-lg shadow-md border order-1 md:order-2">
+          
+          <!-- Folder & Question Selectors -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Folder Filter:</label>
+              <select id="folderSelect" onchange="onFolderFilterChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Select Question:</label>
+              <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+            </div>
+          </div>
+
+          <!-- HIGH VISIBILITY CLASSROOM DISPLAY BOX -->
+          <div id="questionDisplayBox" class="mb-3 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white">
+            <div id="dispQText" class="font-extrabold text-lg md:text-xl text-yellow-300 mb-3 leading-snug text-center">
+              Select a question to display...
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-bold">
+              <div id="dispOptA" class="p-2.5 bg-blue-700 rounded-lg text-white shadow">A: -</div>
+              <div id="dispOptB" class="p-2.5 bg-emerald-700 rounded-lg text-white shadow">B: -</div>
+              <div id="dispOptC" class="p-2.5 bg-amber-600 rounded-lg text-white shadow">C: -</div>
+              <div id="dispOptD" class="p-2.5 bg-rose-700 rounded-lg text-white shadow">D: -</div>
+            </div>
+          </div>
+
+          <!-- Camera Control Buttons -->
+          <div class="mb-3 flex space-x-2">
+            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
+              Start Camera
+            </button>
+            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
+              Stop Camera
+            </button>
+          </div>
+
+          <!-- Video Feed -->
+          <div id="reader" class="w-full bg-black rounded overflow-hidden" style="min-height: 220px;"></div>
         </div>
-      </div>
 
-      <!-- HIGH VISIBILITY CLASSROOM DISPLAY BOX -->
-      <div id="questionDisplayBox" class="mb-4 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white">
-        <div id="dispQText" class="font-extrabold text-xl md:text-2xl text-yellow-300 mb-4 leading-snug text-center">
-          Select a question to display...
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-base md:text-lg font-bold">
-          <div id="dispOptA" class="p-3 bg-blue-700 rounded-lg text-white shadow">A: -</div>
-          <div id="dispOptB" class="p-3 bg-emerald-700 rounded-lg text-white shadow">B: -</div>
-          <div id="dispOptC" class="p-3 bg-amber-600 rounded-lg text-white shadow">C: -</div>
-          <div id="dispOptD" class="p-3 bg-rose-700 rounded-lg text-white shadow">D: -</div>
-        </div>
-      </div>
-
-      <!-- Scanning Option Buttons -->
-      <div class="mb-3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Answer Option Being Scanned:</label>
-        <div id="optionButtons" class="flex space-x-2">
-          <button onclick="setOption('A')" class="opt-btn flex-1 bg-blue-600 text-white py-2 rounded font-bold text-sm">A</button>
-          <button onclick="setOption('B')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">B</button>
-          <button onclick="setOption('C')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">C</button>
-          <button onclick="setOption('D')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">D</button>
-        </div>
-      </div>
-
-      <!-- Camera Control Buttons (Fixed High-Visibility Styling) -->
-      <div class="mb-3 flex space-x-2">
-        <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
-          Start Camera
-        </button>
-        <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
-          Stop Camera
-        </button>
-      </div>
-
-      <div id="reader" class="w-full mb-3 bg-black rounded overflow-hidden" style="min-height: 220px;"></div>
-
-      <!-- Real-Time Scanned Results -->
-      <div class="bg-gray-50 p-3 rounded border">
-        <h3 class="font-bold text-xs text-gray-700 mb-1">Live Student Responses:</h3>
-        <ul id="scanLog" class="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto"></ul>
       </div>
     </div>
 
@@ -152,7 +154,7 @@
         <h2 class="text-md font-bold text-gray-800">Student Cards & Roster</h2>
         <button onclick="saveStudentNames()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold">Save Names</button>
       </div>
-      <div id="cardsContainer" class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto p-1"></div>
+      <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-1"></div>
     </div>
 
     <!-- HIDDEN CONTAINER FOR PDF GENERATION -->
@@ -163,7 +165,6 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
-    let selectedOption = 'A';
     let html5QrCode = null;
     let scannedCache = new Set();
     let currentActiveQId = "";
@@ -287,13 +288,19 @@
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
       if (!logs || logs.length === 0) {
-        logUl.innerHTML = '<li class="text-gray-400 italic">No responses scanned yet for this question.</li>';
+        logUl.innerHTML = '<li class="text-gray-400 italic p-2">No responses scanned yet for this question.</li>';
         return;
       }
 
       logUl.innerHTML = logs.map(l => {
-        let colorClass = l.isCorrect === 'Correct' ? 'text-green-600 font-bold' : 'text-red-600 font-medium';
-        return `<li class="${colorClass}">${l.studentName} -> Opt ${l.selectedAnswer} (${l.isCorrect})</li>`;
+        let isCorrect = l.isCorrect === 'Correct';
+        let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+        let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
+        
+        return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
+          <span><b>${l.studentName}</b> selected <b>${l.selectedAnswer}</b></span>
+          <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
+        </li>`;
       }).reverse().join('');
     }
 
@@ -346,7 +353,6 @@
       });
     }
 
-    // --- PDF REPORT GENERATION WITH EXPLANATIONS ---
     function buildStudentReportHTML(sId) {
       let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
       let sName = student ? student.name : ("Card #" + sId);
@@ -374,7 +380,7 @@
 
         return `
           <div style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
-            <div style="display: flex; justify-between: space-between; font-size: 12px; font-weight: bold;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold;">
               <span>Q${l.questionId}: ${qText}</span>
               <span>${badge}</span>
             </div>
@@ -393,13 +399,13 @@
             <p style="font-size: 12px; color: #6b7280; margin: 2px 0 0 0;">Plickers Assessment Result Sheet</p>
           </div>
           
-          <div style="display: flex; justify-between: space-between; background-color: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; background-color: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
             <div><b>Student Name:</b> ${sName}</div>
             <div><b>Total Score:</b> ${correctCount} / ${totalCount} (${pct}%)</div>
           </div>
 
           <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">Question Analysis:</h3>
-          ${itemsHtml || '<div style="font-size: 12px; color: #9ca3af; italic;">No answers recorded for this student.</div>'}
+          ${itemsHtml || '<div style="font-size: 12px; color: #9ca3af; font-style: italic;">No answers recorded for this student.</div>'}
         </div>
       `;
     }
@@ -407,7 +413,6 @@
     function downloadStudentPDF(sId) {
       let container = document.getElementById('pdfExportContainer');
       container.innerHTML = buildStudentReportHTML(sId);
-      let element = container;
 
       let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
       let sName = student ? student.name.replace(/\s+/g, '_') : (`Card_${sId}`);
@@ -418,7 +423,7 @@
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(element).save();
+      }).from(container).save();
     }
 
     function downloadClassPDF() {
@@ -517,19 +522,6 @@
       });
     }
 
-    function setOption(opt) {
-      selectedOption = opt;
-      document.querySelectorAll('.opt-btn').forEach(b => {
-        b.classList.remove('bg-blue-600', 'text-white');
-        b.classList.add('bg-gray-200', 'text-gray-800');
-        if (b.innerText === opt) {
-          b.classList.add('bg-blue-600', 'text-white');
-          b.classList.remove('bg-gray-200', 'text-gray-800');
-        }
-      });
-      scannedCache.clear();
-    }
-
     async function startScanner() {
       if (html5QrCode) await stopScanner();
       html5QrCode = new Html5Qrcode("reader");
@@ -563,7 +555,7 @@
       let questionId = document.getElementById('questionSelect').value;
       if (!questionId) return alert("Select a question first.");
       
-      let cacheKey = `${questionId}-${selectedOption}-${studentId}`;
+      let cacheKey = `${questionId}-${studentId}`;
       if (scannedCache.has(cacheKey)) return; 
       scannedCache.add(cacheKey);
 
@@ -571,7 +563,7 @@
         action: 'saveResponse',
         questionId: questionId,
         studentId: studentId,
-        selectedAnswer: selectedOption
+        selectedAnswer: 'A' // Default scan payload
       };
 
       fetch(API_URL, {
