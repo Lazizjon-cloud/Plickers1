@@ -4,11 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plickers Web App</title>
-  <!-- Tailwind CSS & PDF Generator Script -->
+  <!-- Tailwind CSS & QR Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
   <div class="container mx-auto p-3 max-w-6xl">
@@ -40,8 +39,6 @@
 
     <!-- TAB 1: SCANNER & PROJECTOR DISPLAY -->
     <div id="tab-scanner" class="mb-4">
-      
-      <!-- GRID LAYOUT: Left Half (Responses) | Right Half (Question & Camera Controls) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         <!-- LEFT HALF: Confidential Live Student Responses -->
@@ -53,7 +50,6 @@
             </button>
           </div>
           
-          <!-- ALL STUDENTS ANSWERED NOTIFICATION BANNER -->
           <div id="completionBanner" class="hidden mb-2 p-2 bg-emerald-100 border border-emerald-400 text-emerald-800 font-bold text-xs rounded text-center animate-bounce">
             🎉 All active students have submitted their answers!
           </div>
@@ -98,7 +94,7 @@
             </div>
           </div>
 
-          <!-- HIGH VISIBILITY CLASSROOM DISPLAY BOX -->
+          <!-- CLASSROOM DISPLAY BOX -->
           <div id="questionDisplayBox" class="mb-3 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white">
             <div id="dispQText" class="font-extrabold text-lg md:text-xl text-yellow-300 mb-3 leading-snug text-center">
               Select a question to display...
@@ -111,7 +107,7 @@
             </div>
           </div>
 
-          <!-- Camera Control Buttons -->
+          <!-- Camera Controls -->
           <div class="mb-3 flex space-x-2">
             <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
               Start Camera
@@ -121,21 +117,17 @@
             </button>
           </div>
 
-          <!-- Video Feed -->
           <div id="reader" class="w-full bg-black rounded overflow-hidden" style="min-height: 220px;"></div>
         </div>
 
       </div>
     </div>
 
-    <!-- TAB 2: RESULTS, RANKINGS & PDF REPORT GENERATION -->
+    <!-- TAB 2: RESULTS & RANKINGS -->
     <div id="tab-history" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-        <h2 class="text-md font-bold text-gray-800">Class Performance, Rankings & PDF Reports</h2>
-        <div class="flex space-x-2">
-          <button onclick="downloadClassPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-xs font-semibold">📄 Export All Student Reports (PDF)</button>
-          <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Clear History</button>
-        </div>
+        <h2 class="text-md font-bold text-gray-800">Class Performance & Rankings</h2>
+        <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Clear History</button>
       </div>
       
       <div id="historyStats" class="grid grid-cols-3 gap-2 mb-4 text-center text-xs">
@@ -162,7 +154,6 @@
               <th class="p-2">Attempted</th>
               <th class="p-2">Correct</th>
               <th class="p-2">Score (%)</th>
-              <th class="p-2 text-right">PDF Full Report</th>
             </tr>
           </thead>
           <tbody id="studentScoreTable" class="divide-y text-gray-600"></tbody>
@@ -181,9 +172,9 @@
 
       <div class="mb-3">
         <label class="block text-xs font-semibold text-gray-600 mb-1">
-          Bulk Format: <code>ID | Question | A | B | C | D | Correct | Explanation</code>
+          Bulk Format (Auto-numbered): <code>Question | A | B | C | D | Correct | Explanation</code>
         </label>
-        <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="Q1 | She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
+        <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
       </div>
 
       <button onclick="submitBulk()" class="mb-5 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700">Upload Questions to Folder</button>
@@ -193,7 +184,7 @@
       <div id="folderManageList" class="space-y-3 text-xs"></div>
     </div>
 
-    <!-- TAB 4: STUDENT CARDS, EDITABLE NAMES & ACTIVATION SWITCHES -->
+    <!-- TAB 4: STUDENT CARDS -->
     <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <div class="flex justify-between items-center mb-3">
         <div>
@@ -205,15 +196,12 @@
       <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
     </div>
 
-    <!-- HIDDEN CONTAINER FOR PDF GENERATION -->
-    <div id="pdfExportContainer" class="hidden"></div>
-
   </div>
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
-    let activeCardsState = {}; // Active/Inactive toggle states
+    let activeCardsState = {};
     let html5QrCode = null;
     let scannedCache = new Set();
     let currentActiveQId = "";
@@ -221,11 +209,9 @@
     let revealedStudents = new Set();
     let revealAll = false;
 
-    // Selected folders array (Multi-folder feature)
     let selectedFolders = [];
     let customQuestionOrder = null;
 
-    // Timer Variables
     let timerTime = 30;
     let timerInterval = null;
 
@@ -234,7 +220,6 @@
       setInterval(syncState, 2500); 
     };
 
-    // --- TIMER LOGIC & AUTOMATIC INCORRECT REGISTRATION ---
     function onTimerInputChange() {
       let val = parseInt(document.getElementById('timerInput').value) || 30;
       timerTime = val;
@@ -278,23 +263,21 @@
       let qId = document.getElementById('questionSelect').value;
       if (!qId) return;
 
-      // Identify active students who haven't responded yet
       let currentLogs = appData.logs || [];
       let respondedStudentIds = new Set(currentLogs.map(l => String(l.studentId)));
       
-      let unansweredActiveStudents = (appData.studentList || []).filter(s => {
+      let unansweredActiveStudents = getOrderedUniqueStudents().filter(s => {
         return activeCardsState[s.id] !== false && !respondedStudentIds.has(String(s.id));
       });
 
       if (unansweredActiveStudents.length === 0) return;
 
-      // Submit automatic "Incorrect" records for unsubmitted students
       let promises = unansweredActiveStudents.map(student => {
         let payload = {
           action: 'saveResponse',
           questionId: qId,
           studentId: String(student.id),
-          selectedAnswer: '-' // Represents unanswered/timed-out
+          selectedAnswer: '-'
         };
         return fetch(API_URL, {
           method: 'POST',
@@ -347,20 +330,38 @@
         }).catch(err => console.error("Sync error: ", err));
     }
 
+    // Helper to order students by numerical ID and remove duplicates
+    function getOrderedUniqueStudents() {
+      let rawList = appData.studentList || [];
+      let uniqueMap = new Map();
+      
+      rawList.forEach(s => {
+        let cleanId = String(s.id).trim();
+        if (!uniqueMap.has(cleanId)) {
+          uniqueMap.set(cleanId, { id: cleanId, name: s.name });
+        }
+      });
+
+      return Array.from(uniqueMap.values()).sort((a, b) => {
+        let numA = parseInt(a.id, 10);
+        let numB = parseInt(b.id, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
     function initActiveCardsState() {
-      if (!appData.studentList) return;
-      appData.studentList.forEach(s => {
+      getOrderedUniqueStudents().forEach(s => {
         if (activeCardsState[s.id] === undefined) {
           activeCardsState[s.id] = true;
         }
       });
     }
 
-    // --- MULTI-FOLDER FILTER LOGIC ---
     function initFolderSelection() {
       let folders = appData.folders || [];
       if (selectedFolders.length === 0) {
-        selectedFolders = [...folders]; // Default: all selected
+        selectedFolders = [...folders];
       }
       syncFolderCheckboxes();
     }
@@ -395,7 +396,7 @@
         let chk = document.getElementById(`chk_folder_${f}`);
         if (chk && chk.checked) selectedFolders.push(f);
       });
-      customQuestionOrder = null; // Reset shuffle on folder change
+      customQuestionOrder = null;
       updateSelectedFoldersLabel();
       renderQuestionDropdown();
     }
@@ -417,12 +418,10 @@
       else label.innerText = `${selectedFolders.length} Folders Selected`;
     }
 
-    // --- QUESTION SHUFFLE / RANDOMIZATION LOGIC ---
     function shuffleQuestions() {
       let questions = getFilteredQuestions();
       if (questions.length === 0) return;
 
-      // Fisher-Yates Shuffle
       let shuffled = [...questions];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -468,7 +467,7 @@
 
       isUserSelecting = true;
       updateActiveQuestionUI(qId);
-      resetTimer(); // Reset timer for new question
+      resetTimer();
 
       fetch(API_URL, {
         method: 'POST',
@@ -508,7 +507,7 @@
 
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
-      let activeStudents = (appData.studentList || []).filter(s => activeCardsState[s.id]);
+      let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
@@ -547,7 +546,6 @@
       }).reverse().join('');
     }
 
-    // --- TIE RANKING LOGIC ---
     function renderHistoryTab() {
       let logs = appData.allLogs || [];
       document.getElementById('statTotalScans').innerText = logs.length;
@@ -557,7 +555,7 @@
       document.getElementById('statAccuracy').innerText = acc + '%';
 
       let statsMap = {};
-      (appData.studentList || []).forEach(s => {
+      getOrderedUniqueStudents().forEach(s => {
         statsMap[s.id] = { id: s.id, name: s.name, total: 0, correct: 0 };
       });
 
@@ -569,7 +567,6 @@
         if (l.isCorrect === 'Correct') statsMap[l.studentId].correct += 1;
       });
 
-      // Sort students by Accuracy % desc, Correct desc, Total desc
       let sortedStudents = Object.values(statsMap).map(s => {
         s.pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
         return s;
@@ -579,7 +576,6 @@
         return b.total - a.total;
       });
 
-      // Calculate shared rank for ties
       let currentRank = 1;
       sortedStudents.forEach((st, idx) => {
         if (idx > 0) {
@@ -605,9 +601,6 @@
           <td class="p-2">${st.total}</td>
           <td class="p-2 text-green-600 font-bold">${st.correct}</td>
           <td class="p-2 font-semibold">${st.pct}%</td>
-          <td class="p-2 text-right">
-            <button onclick="downloadStudentPDF('${st.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Generate PDF Report</button>
-          </td>
         </tr>`;
       }).join('');
     }
@@ -622,127 +615,6 @@
         alert("History cleared!");
         loadData();
       });
-    }
-
-    // --- FULL COMPREHENSIVE PDF REPORT GENERATION ---
-    function buildStudentReportHTML(sId) {
-      let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
-      let sName = student ? student.name : ("Card #" + sId);
-      
-      let sLogs = (appData.allLogs || []).filter(l => String(l.studentId) === String(sId));
-      let correctCount = sLogs.filter(l => l.isCorrect === 'Correct').length;
-      let totalCount = sLogs.length;
-      let pct = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
-
-      let itemsRows = sLogs.map(l => {
-        let q = (appData.questions || []).find(item => String(item.id) === String(l.questionId));
-        let qText = q ? q.text : `Question #${l.questionId}`;
-        let correctOpt = q ? q.correct : '-';
-        let explanation = q ? (q.explanation || 'No explanation provided.') : 'Review course guidelines.';
-
-        let isCorrect = l.isCorrect === 'Correct';
-        let badgeStyle = isCorrect 
-          ? `background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;` 
-          : `background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;`;
-
-        let feedbackBlock = !isCorrect ? `
-          <tr style="background-color: #fef2f2;">
-            <td colspan="4" style="padding: 8px 12px; font-size: 11px; color: #991b1b; border-bottom: 1px solid #e5e7eb;">
-              <b>💡 Feedback & Explanation:</b> ${explanation}
-            </td>
-          </tr>` : '';
-
-        return `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 10px; font-weight: bold; font-size: 11px;">Q${l.questionId}</td>
-            <td style="padding: 10px; font-size: 11px; color: #374151;">${qText}</td>
-            <td style="padding: 10px; font-size: 11px; text-align: center;">
-              Student: <b>${l.selectedAnswer}</b><br><span style="color:#6b7280; font-size:10px;">Correct: ${correctOpt}</span>
-            </td>
-            <td style="padding: 10px; font-size: 10px; text-align: center;">
-              <span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; ${badgeStyle}">${l.isCorrect.toUpperCase()}</span>
-            </td>
-          </tr>
-          ${feedbackBlock}
-        `;
-      }).join('');
-
-      return `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #111827; background-color: #ffffff;">
-          <div style="display: flex; justify-between; align-items: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px;">
-            <div>
-              <h1 style="font-size: 22px; font-weight: 800; color: #1d4ed8; margin: 0;">Student Performance Evaluation Report</h1>
-              <p style="font-size: 12px; color: #4b5563; margin: 4px 0 0 0;">Assessment & Personal Feedback Summary</p>
-            </div>
-            <div style="text-align: right; font-size: 11px; color: #6b7280;">
-              Generated: ${new Date().toLocaleDateString()}
-            </div>
-          </div>
-
-          <div style="display: table; width: 100%; margin-bottom: 20px; border-collapse: separate; border-spacing: 10px 0;">
-            <div style="display: table-cell; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
-              <span style="font-size: 11px; color: #64748b; font-weight: bold; display: block;">STUDENT NAME</span>
-              <span style="font-size: 16px; font-weight: 800; color: #0f172a;">${sName}</span>
-            </div>
-            <div style="display: table-cell; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px;">
-              <span style="font-size: 11px; color: #166534; font-weight: bold; display: block;">SCORE</span>
-              <span style="font-size: 16px; font-weight: 800; color: #15803d;">${correctCount} / ${totalCount}</span>
-            </div>
-            <div style="display: table-cell; background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px;">
-              <span style="font-size: 11px; color: #1e40af; font-weight: bold; display: block;">ACCURACY</span>
-              <span style="font-size: 16px; font-weight: 800; color: #1d4ed8;">${pct}%</span>
-            </div>
-          </div>
-
-          <h3 style="font-size: 14px; font-weight: 700; color: #1f2937; margin-bottom: 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 4px;">
-            Detailed Question Analysis & Explanations
-          </h3>
-
-          <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 20px;">
-            <thead>
-              <tr style="background-color: #f3f4f6; color: #374151; font-size: 11px;">
-                <th style="padding: 8px 10px; width: 10%;">ID</th>
-                <th style="padding: 8px 10px; width: 55%;">Question</th>
-                <th style="padding: 8px 10px; width: 20%; text-align: center;">Choices</th>
-                <th style="padding: 8px 10px; width: 15%; text-align: center;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsRows || '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #9ca3af; font-style: italic;">No answered questions recorded.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function downloadStudentPDF(sId) {
-      let container = document.getElementById('pdfExportContainer');
-      container.innerHTML = buildStudentReportHTML(sId);
-
-      let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
-      let sName = student ? student.name.replace(/\s+/g, '_') : (`Card_${sId}`);
-
-      html2pdf().set({
-        margin: 8,
-        filename: `Report_${sName}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(container).save();
-    }
-
-    function downloadClassPDF() {
-      let container = document.getElementById('pdfExportContainer');
-      let combinedHTML = (appData.studentList || []).map(s => buildStudentReportHTML(s.id) + '<div style="page-break-after: always;"></div>').join('');
-      container.innerHTML = combinedHTML;
-
-      html2pdf().set({
-        margin: 8,
-        filename: `Class_Full_Reports.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(container).save();
     }
 
     function renderFolderManagement() {
@@ -791,12 +663,14 @@
       }).then(() => loadData());
     }
 
+    // Renders deduplicated and numerically ordered student cards
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
-      if (!appData.studentList) return;
       
-      appData.studentList.forEach(s => {
+      let students = getOrderedUniqueStudents();
+      
+      students.forEach(s => {
         let isActive = activeCardsState[s.id] !== false;
         let cardDiv = document.createElement('div');
         cardDiv.className = `border p-2 rounded text-center transition-all ${isActive ? 'bg-gray-50' : 'bg-red-50 opacity-60'} flex flex-col items-center shadow-sm`;
@@ -824,7 +698,7 @@
 
     function saveStudentNames() {
       let updatedList = [];
-      (appData.studentList || []).forEach(s => {
+      getOrderedUniqueStudents().forEach(s => {
         let inputVal = document.getElementById(`stName_${s.id}`).value.trim();
         updatedList.push({ id: s.id, name: inputVal || ("Card " + s.id) });
       });
@@ -893,37 +767,52 @@
       }).then(() => syncState()).catch(err => console.error("Error saving scan:", err));
     }
 
+    // --- AUTOMATIC QUESTION ENUMERATION ---
     function submitBulk() {
       let rawText = document.getElementById('bulkInput').value.trim();
       let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
       if (!rawText) return;
       
+      // Calculate starting ID number automatically
+      let existingQuestions = appData.questions || [];
+      let maxId = 0;
+      existingQuestions.forEach(q => {
+        let parsed = parseInt(q.id, 10);
+        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
+      });
+      let nextId = maxId + 1;
+
       let lines = rawText.split('\n');
       let questionsList = [];
+
       lines.forEach(line => {
         let parts = line.split('|').map(p => p.trim());
-        if (parts.length >= 7) {
+        
+        // Handles standard 7-part line: Question | A | B | C | D | Correct | Explanation
+        if (parts.length >= 6) {
           questionsList.push({ 
-            id: parts[0], 
-            text: parts[1], 
-            a: parts[2], 
-            b: parts[3], 
-            c: parts[4], 
-            d: parts[5], 
-            correct: parts[6],
-            explanation: parts[7] || ""
+            id: String(nextId++), 
+            text: parts[0], 
+            a: parts[1], 
+            b: parts[2], 
+            c: parts[3], 
+            d: parts[4], 
+            correct: parts[5],
+            explanation: parts[6] || ""
           });
         }
       });
 
-      if (questionsList.length === 0) return alert("Formatting error.");
+      if (questionsList.length === 0) {
+        return alert("Formatting error. Make sure to format lines as:\nQuestion | A | B | C | D | Correct | Explanation");
+      }
 
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: questionsList })
       }).then(() => {
-        alert(`Questions uploaded to folder "${folderName}"!`);
+        alert(`Uploaded ${questionsList.length} question(s) to folder "${folderName}"!`);
         document.getElementById('bulkInput').value = '';
         switchTab('scanner');
         loadData();
