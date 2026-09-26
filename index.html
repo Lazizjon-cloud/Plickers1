@@ -33,6 +33,7 @@
         <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Scanner</button>
         <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Results & Reports</button>
         <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Questions</button>
+        <button onclick="switchTab('groups')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Groups</button>
         <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Cards</button>
       </div>
     </header>
@@ -117,7 +118,14 @@
             </button>
           </div>
 
-          <div id="reader" class="w-full bg-black rounded overflow-hidden" style="min-height: 220px;"></div>
+          <!-- SCANNER CONTAINER WITH OVERLAY NOTIFICATION -->
+          <div class="relative w-full bg-black rounded overflow-hidden" style="min-height: 220px;">
+            <div id="scannerOverlayBanner" class="hidden absolute top-2 left-2 right-2 z-30 p-2.5 bg-emerald-600 text-white font-extrabold text-xs rounded shadow-lg text-center animate-bounce border-2 border-white">
+              🎉 ALL STUDENTS HAVE COMPLETED!
+            </div>
+            <div id="reader" class="w-full h-full"></div>
+          </div>
+
         </div>
 
       </div>
@@ -184,14 +192,82 @@
       <div id="folderManageList" class="space-y-3 text-xs"></div>
     </div>
 
-    <!-- TAB 4: STUDENT CARDS -->
+    <!-- TAB 4: GROUPS MANAGEMENT -->
+    <div id="tab-groups" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <h2 class="text-md font-bold text-gray-800 mb-3">Student Group Management</h2>
+      
+      <!-- Group Selection & Creation -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="p-3 border rounded bg-gray-50">
+          <label class="block text-xs font-bold text-gray-700 mb-1">Select Active Group:</label>
+          <div class="flex space-x-2">
+            <select id="groupSelect" onchange="loadSelectedGroup()" class="flex-1 p-2 border rounded text-xs bg-white font-semibold">
+              <option value="">-- No Group Selected --</option>
+            </select>
+            <button onclick="deleteCurrentGroup()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-bold">Delete</button>
+          </div>
+        </div>
+
+        <div class="p-3 border rounded bg-gray-50">
+          <label class="block text-xs font-bold text-gray-700 mb-1">Create New Group:</label>
+          <div class="flex space-x-2">
+            <input type="text" id="newGroupName" placeholder="Group Name (e.g., Grade 5A)" class="flex-1 p-2 border rounded text-xs">
+            <button onclick="createNewGroup()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Students to Current Group -->
+      <div id="groupActiveArea" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <!-- Bulk Add Students -->
+          <div class="p-3 border rounded bg-blue-50">
+            <h3 class="text-xs font-bold text-blue-800 mb-2">Bulk Add Student Names (Auto-assign Sequential Cards)</h3>
+            <textarea id="bulkStudentNames" rows="4" class="w-full p-2 border rounded text-xs mb-2 font-mono" placeholder="John Doe&#10;Jane Smith&#10;Alex Johnson"></textarea>
+            <button onclick="bulkAddStudentsToGroup()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-bold">Assign Cards & Save</button>
+          </div>
+
+          <!-- Add Single Student with Card ID -->
+          <div class="p-3 border rounded bg-emerald-50">
+            <h3 class="text-xs font-bold text-emerald-800 mb-2">Add Individual Student to Group</h3>
+            <div class="space-y-2 text-xs">
+              <div>
+                <label class="block font-semibold mb-0.5">Student Name:</label>
+                <input type="text" id="singleStudentName" placeholder="Student Name" class="w-full p-1.5 border rounded">
+              </div>
+              <div>
+                <label class="block font-semibold mb-0.5">Assigned Card Number:</label>
+                <input type="number" id="singleStudentCard" min="1" max="100" placeholder="Card #" class="w-full p-1.5 border rounded">
+              </div>
+              <button onclick="addSingleStudentToGroup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded font-bold">Add Student to Group</button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <h3 class="text-xs font-bold text-gray-700 mb-2">Group Roster (<span id="activeGroupNameLabel"></span>)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-100 border-b">
+                <th class="p-2">Card #</th>
+                <th class="p-2">Student Name</th>
+                <th class="p-2">Action</th>
+              </tr>
+            </thead>
+            <tbody id="groupRosterTable" class="divide-y text-gray-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: STUDENT CARDS -->
     <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <div class="flex justify-between items-center mb-3">
         <div>
-          <h2 class="text-md font-bold text-gray-800">Student Cards & Roster Management</h2>
-          <p class="text-xs text-gray-500">Enable or disable student cards depending on attendance.</p>
+          <h2 class="text-md font-bold text-gray-800">Student Cards & Activation</h2>
+          <p class="text-xs text-gray-500">Enable or disable student cards depending on class size and attendance.</p>
         </div>
-        <button onclick="saveStudentNames()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold">Save Roster Changes</button>
       </div>
       <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
     </div>
@@ -201,7 +277,15 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
+    let groupsData = {}; // Format: { "Group Name": [ { id: "1", name: "John" } ] }
+    let currentGroupName = "";
+    
+    // Default 20 Active / 80 Inactive setup
     let activeCardsState = {};
+    for (let i = 1; i <= 100; i++) {
+      activeCardsState[String(i)] = (i <= 20);
+    }
+
     let html5QrCode = null;
     let scannedCache = new Set();
     let currentActiveQId = "";
@@ -295,10 +379,12 @@
       document.getElementById('tab-scanner').classList.toggle('hidden', tab !== 'scanner');
       document.getElementById('tab-history').classList.toggle('hidden', tab !== 'history');
       document.getElementById('tab-bulk').classList.toggle('hidden', tab !== 'bulk');
+      document.getElementById('tab-groups').classList.toggle('hidden', tab !== 'groups');
       document.getElementById('tab-cards').classList.toggle('hidden', tab !== 'cards');
       if (tab === 'cards') renderStudentCards();
       if (tab === 'history') renderHistoryTab();
       if (tab === 'bulk') renderFolderManagement();
+      if (tab === 'groups') renderGroupsTab();
     }
 
     function loadData() {
@@ -306,7 +392,6 @@
         .then(res => res.json())
         .then(data => {
           appData = data;
-          initActiveCardsState();
           initFolderSelection();
           renderQuestionDropdown();
           if (data.activeQuestion) updateActiveQuestionUI(data.activeQuestion);
@@ -320,7 +405,6 @@
         .then(res => res.json())
         .then(data => {
           appData = data;
-          initActiveCardsState();
           syncFolderCheckboxes();
           renderQuestionDropdown();
           if (data.activeQuestion && data.activeQuestion !== currentActiveQId) {
@@ -330,32 +414,22 @@
         }).catch(err => console.error("Sync error: ", err));
     }
 
-    // Helper to order students by numerical ID and remove duplicates
+    // Generate ordered card list from 1 to 100
     function getOrderedUniqueStudents() {
-      let rawList = appData.studentList || [];
-      let uniqueMap = new Map();
-      
-      rawList.forEach(s => {
-        let cleanId = String(s.id).trim();
-        if (!uniqueMap.has(cleanId)) {
-          uniqueMap.set(cleanId, { id: cleanId, name: s.name });
-        }
+      let list = [];
+      let studentMap = {};
+      (appData.studentList || []).forEach(s => {
+        studentMap[String(s.id)] = s.name;
       });
 
-      return Array.from(uniqueMap.values()).sort((a, b) => {
-        let numA = parseInt(a.id, 10);
-        let numB = parseInt(b.id, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return a.id.localeCompare(b.id);
-      });
-    }
-
-    function initActiveCardsState() {
-      getOrderedUniqueStudents().forEach(s => {
-        if (activeCardsState[s.id] === undefined) {
-          activeCardsState[s.id] = true;
-        }
-      });
+      for (let i = 1; i <= 100; i++) {
+        let idStr = String(i);
+        list.push({
+          id: idStr,
+          name: studentMap[idStr] || ("Card " + idStr)
+        });
+      }
+      return list;
     }
 
     function initFolderSelection() {
@@ -508,14 +582,17 @@
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
-      
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
       let banner = document.getElementById('completionBanner');
+      let overlayBanner = document.getElementById('scannerOverlayBanner');
+
       if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
         banner.classList.remove('hidden');
+        overlayBanner.classList.remove('hidden');
       } else {
         banner.classList.add('hidden');
+        overlayBanner.classList.add('hidden');
       }
 
       if (!validLogs || validLogs.length === 0) {
@@ -663,7 +740,167 @@
       }).then(() => loadData());
     }
 
-    // Renders deduplicated and numerically ordered student cards
+    // --- GROUPS MANAGEMENT SYSTEM ---
+    function renderGroupsTab() {
+      let select = document.getElementById('groupSelect');
+      let savedGroups = JSON.parse(localStorage.getItem('plickers_groups') || '{}');
+      groupsData = savedGroups;
+
+      select.innerHTML = '<option value="">-- Select Active Group --</option>';
+      Object.keys(groupsData).forEach(gName => {
+        let opt = document.createElement('option');
+        opt.value = gName;
+        opt.text = gName;
+        if (gName === currentGroupName) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if (currentGroupName && groupsData[currentGroupName]) {
+        document.getElementById('groupActiveArea').classList.remove('hidden');
+        document.getElementById('activeGroupNameLabel').innerText = currentGroupName;
+        renderGroupRosterTable();
+      } else {
+        document.getElementById('groupActiveArea').classList.add('hidden');
+      }
+    }
+
+    function createNewGroup() {
+      let input = document.getElementById('newGroupName');
+      let name = input.value.trim();
+      if (!name) return alert("Enter a group name.");
+      
+      if (!groupsData[name]) {
+        groupsData[name] = [];
+        localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      }
+      currentGroupName = name;
+      input.value = '';
+      renderGroupsTab();
+    }
+
+    function loadSelectedGroup() {
+      let val = document.getElementById('groupSelect').value;
+      currentGroupName = val;
+      renderGroupsTab();
+
+      if (val && groupsData[val]) {
+        syncGroupToRoster(groupsData[val]);
+      }
+    }
+
+    function deleteCurrentGroup() {
+      if (!currentGroupName) return;
+      if (!confirm(`Delete group "${currentGroupName}"?`)) return;
+
+      delete groupsData[currentGroupName];
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      currentGroupName = "";
+      renderGroupsTab();
+    }
+
+    function bulkAddStudentsToGroup() {
+      if (!currentGroupName) return alert("Select a group first.");
+      let rawNames = document.getElementById('bulkStudentNames').value.trim();
+      if (!rawNames) return;
+
+      let names = rawNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      let groupList = [];
+
+      names.forEach((name, index) => {
+        groupList.push({ id: String(index + 1), name: name });
+      });
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      
+      document.getElementById('bulkStudentNames').value = '';
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function addSingleStudentToGroup() {
+      if (!currentGroupName) return alert("Select a group first.");
+      let name = document.getElementById('singleStudentName').value.trim();
+      let cardNum = document.getElementById('singleStudentCard').value.trim();
+
+      if (!name || !cardNum) return alert("Provide both student name and card number.");
+
+      let groupList = groupsData[currentGroupName] || [];
+      // Remove existing entry for card if present
+      groupList = groupList.filter(s => String(s.id) !== String(cardNum));
+      groupList.push({ id: String(cardNum), name: name });
+
+      // Sort by card ID
+      groupList.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+
+      document.getElementById('singleStudentName').value = '';
+      document.getElementById('singleStudentCard').value = '';
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function removeStudentFromGroup(cardId) {
+      if (!currentGroupName) return;
+      let groupList = groupsData[currentGroupName] || [];
+      groupList = groupList.filter(s => String(s.id) !== String(cardId));
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function renderGroupRosterTable() {
+      let tbody = document.getElementById('groupRosterTable');
+      let groupList = groupsData[currentGroupName] || [];
+
+      if (groupList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="p-2 text-gray-400 italic">No students added to this group yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = groupList.map(s => `
+        <tr class="border-b">
+          <td class="p-2 font-bold text-blue-700">Card #${s.id}</td>
+          <td class="p-2 font-semibold text-gray-800">${s.name}</td>
+          <td class="p-2">
+            <button onclick="removeStudentFromGroup('${s.id}')" class="text-red-500 hover:underline font-bold">Remove</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function syncGroupToRoster(groupList) {
+      // Deactivate all cards, then activate only the ones in this group
+      for (let i = 1; i <= 100; i++) {
+        activeCardsState[String(i)] = false;
+      }
+
+      let updatedList = [];
+      let groupMap = {};
+      groupList.forEach(s => {
+        groupMap[String(s.id)] = s.name;
+        activeCardsState[String(s.id)] = true;
+      });
+
+      for (let i = 1; i <= 100; i++) {
+        let idStr = String(i);
+        updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card " + idStr) });
+      }
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveStudentNames', studentList: updatedList })
+      }).then(() => {
+        loadData();
+      });
+    }
+
+    // --- RENDER CARDS GRID ---
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -677,12 +914,14 @@
         
         cardDiv.innerHTML = `
           <div class="flex justify-between items-center w-full mb-1 px-1">
-            <span class="text-xs font-bold text-gray-500">Card #${s.id}</span>
+            <span class="text-xs font-bold text-gray-700">Card #${s.id}</span>
             <button onclick="toggleCardStatus('${s.id}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}">
               ${isActive ? 'Active' : 'Inactive'}
             </button>
           </div>
-          <input type="text" id="stName_${s.id}" value="${s.name}" class="text-center font-bold text-xs p-1 border rounded w-full mb-2 bg-white text-gray-800" />
+          <div class="text-center font-bold text-xs p-1 border rounded w-full mb-2 bg-white text-gray-800 truncate">
+            ${s.name}
+          </div>
         `;
         let qrDiv = document.createElement('div');
         cardDiv.appendChild(qrDiv);
@@ -694,23 +933,6 @@
     function toggleCardStatus(sId) {
       activeCardsState[sId] = !activeCardsState[sId];
       renderStudentCards();
-    }
-
-    function saveStudentNames() {
-      let updatedList = [];
-      getOrderedUniqueStudents().forEach(s => {
-        let inputVal = document.getElementById(`stName_${s.id}`).value.trim();
-        updatedList.push({ id: s.id, name: inputVal || ("Card " + s.id) });
-      });
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveStudentNames', studentList: updatedList })
-      }).then(() => {
-        alert("Roster changes saved successfully!");
-        loadData();
-      });
     }
 
     async function startScanner() {
@@ -773,7 +995,6 @@
       let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
       if (!rawText) return;
       
-      // Calculate starting ID number automatically
       let existingQuestions = appData.questions || [];
       let maxId = 0;
       existingQuestions.forEach(q => {
@@ -788,7 +1009,6 @@
       lines.forEach(line => {
         let parts = line.split('|').map(p => p.trim());
         
-        // Handles standard 7-part line: Question | A | B | C | D | Correct | Explanation
         if (parts.length >= 6) {
           questionsList.push({ 
             id: String(nextId++), 
