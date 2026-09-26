@@ -22,11 +22,24 @@
     <div id="tab-scanner" class="bg-white p-4 rounded-lg shadow-md mb-4">
       <h2 class="text-md font-semibold mb-2 text-gray-700">Live Classroom Scanner</h2>
       
+      <!-- Question Selector -->
       <div class="mb-3">
         <label class="block text-xs font-medium text-gray-600 mb-1">Select Question:</label>
-        <select id="questionSelect" class="w-full p-2 border border-gray-300 rounded-md text-sm"></select>
+        <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-gray-300 rounded-md text-sm bg-white"></select>
       </div>
 
+      <!-- Live Question Text & Options Box -->
+      <div id="questionDisplayBox" class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div id="dispQText" class="font-bold text-xs text-gray-800 mb-2">Select a question...</div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div id="dispOptA" class="p-1.5 bg-white border rounded text-gray-700"><b>A:</b> -</div>
+          <div id="dispOptB" class="p-1.5 bg-white border rounded text-gray-700"><b>B:</b> -</div>
+          <div id="dispOptC" class="p-1.5 bg-white border rounded text-gray-700"><b>C:</b> -</div>
+          <div id="dispOptD" class="p-1.5 bg-white border rounded text-gray-700"><b>D:</b> -</div>
+        </div>
+      </div>
+
+      <!-- Answer Option Being Scanned -->
       <div class="mb-3">
         <label class="block text-xs font-medium text-gray-600 mb-1">Answer Option Being Scanned:</label>
         <div id="optionButtons" class="flex space-x-2">
@@ -61,15 +74,20 @@
       <div id="cardsContainer" class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto p-1"></div>
     </div>
   </div>
+
   <script>
-    // --- PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE ---
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], students: {}, studentList: [] };
     let selectedOption = 'A';
     let html5QrCode = null;
     let scannedCache = new Set();
+    let currentActiveQId = "";
+    let isUserChangingSelect = false;
 
-    window.onload = function() { loadData(); };
+    window.onload = function() { 
+      loadData(); 
+      setInterval(syncState, 2500); // Poll for live desktop/phone sync every 2.5s
+    };
 
     function switchTab(tab) {
       document.getElementById('tab-scanner').classList.toggle('hidden', tab !== 'scanner');
@@ -83,19 +101,88 @@
         .then(res => res.json())
         .then(data => {
           appData = data;
-          let select = document.getElementById('questionSelect');
-          select.innerHTML = '';
-          if(data.questions.length === 0) {
-            select.innerHTML = '<option>No questions found. Add via Bulk tab.</option>';
-          } else {
-            data.questions.forEach(q => {
-              let opt = document.createElement('option');
-              opt.value = q.id;
-              opt.text = `${q.id}: ${q.text}`;
-              select.appendChild(opt);
-            });
+          renderDropdown();
+          if (data.activeQuestion) {
+            updateActiveQuestionUI(data.activeQuestion);
           }
-        }).catch(err => alert("Error connecting to database: " + err));
+          renderLogs(data.logs);
+        }).catch(err => console.error("Database connection error: ", err));
+    }
+
+    function syncState() {
+      if (isUserChangingSelect) return;
+
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          appData = data;
+          renderDropdown();
+          if (data.activeQuestion && data.activeQuestion !== currentActiveQId) {
+            updateActiveQuestionUI(data.activeQuestion);
+          }
+          renderLogs(data.logs);
+        })
+        .catch(err => console.error("Sync error: ", err));
+    }
+
+    function renderDropdown() {
+      let select = document.getElementById('questionSelect');
+      let currentVal = select.value;
+      select.innerHTML = '';
+      if (!appData.questions || appData.questions.length === 0) {
+        select.innerHTML = '<option value="">No questions found. Add via Bulk tab.</option>';
+        return;
+      }
+      appData.questions.forEach(q => {
+        let opt = document.createElement('option');
+        opt.value = q.id;
+        opt.text = `${q.id}: ${q.text}`;
+        select.appendChild(opt);
+      });
+      if (currentVal) select.value = currentVal;
+    }
+
+    function onQuestionSelectChange() {
+      let qId = document.getElementById('questionSelect').value;
+      if (!qId || qId.startsWith("No questions")) return;
+
+      isUserChangingSelect = true;
+      updateActiveQuestionUI(qId);
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'setActiveQuestion', questionId: qId })
+      }).finally(() => {
+        isUserChangingSelect = false;
+      });
+    }
+
+    function updateActiveQuestionUI(qId) {
+      currentActiveQId = qId;
+      document.getElementById('questionSelect').value = qId;
+
+      let q = appData.questions.find(item => String(item.id) === String(qId));
+      if (q) {
+        document.getElementById('dispQText').innerText = `${q.id}: ${q.text}`;
+        document.getElementById('dispOptA').innerHTML = `<b>A:</b> ${q.a || '-'}`;
+        document.getElementById('dispOptB').innerHTML = `<b>B:</b> ${q.b || '-'}`;
+        document.getElementById('dispOptC').innerHTML = `<b>C:</b> ${q.c || '-'}`;
+        document.getElementById('dispOptD').innerHTML = `<b>D:</b> ${q.d || '-'}`;
+      }
+    }
+
+    function renderLogs(logs) {
+      let logUl = document.getElementById('scanLog');
+      if (!logs || logs.length === 0) {
+        logUl.innerHTML = '<li class="text-gray-400 italic">No responses scanned yet for this question.</li>';
+        return;
+      }
+
+      logUl.innerHTML = logs.map(l => {
+        let colorClass = l.isCorrect === 'Correct' ? 'text-green-600 font-bold' : 'text-red-600';
+        return `<li class="${colorClass}">${l.studentName} -> Opt ${l.selectedAnswer} (${l.isCorrect})</li>`;
+      }).reverse().join('');
     }
 
     function setOption(opt) {
@@ -112,30 +199,28 @@
     }
 
     async function startScanner() {
-  if (html5QrCode) await stopScanner();
+      if (html5QrCode) await stopScanner();
+      html5QrCode = new Html5Qrcode("reader");
 
-  html5QrCode = new Html5Qrcode("reader");
+      try {
+        let devices = await Html5Qrcode.getCameras();
+        if (!devices || devices.length === 0) {
+          alert("No camera found on this device.");
+          return;
+        }
 
-  try {
-    let devices = await Html5Qrcode.getCameras();
-    if (!devices || devices.length === 0) {
-      alert("No camera found on this device.");
-      return;
+        let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
+
+        await html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: { width: 200, height: 200 } },
+          onScanSuccess,
+          () => {}
+        );
+      } catch (err) {
+        alert("Scanner initialization failed: " + err);
+      }
     }
-
-    // Pick the rear camera sensor directly
-    let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
-
-    await html5QrCode.start(
-      cameraId,
-      { fps: 10, qrbox: { width: 200, height: 200 } },
-      onScanSuccess,
-      () => {}
-    );
-  } catch (err) {
-    alert("Scanner initialization failed: " + err);
-  }
-}
 
     async function stopScanner() {
       if (html5QrCode) {
@@ -154,8 +239,6 @@
       if (scannedCache.has(cacheKey)) return; 
       scannedCache.add(cacheKey);
 
-      let studentName = appData.students[studentId] || studentId;
-
       let payload = {
         action: 'saveResponse',
         questionId: questionId,
@@ -163,19 +246,14 @@
         selectedAnswer: selectedOption
       };
 
-      // Using text/plain to avoid CORS preflight failures with GAS
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       })
       .then(res => res.json())
-      .then(res => {
-        let log = document.getElementById('scanLog');
-        let li = document.createElement('li');
-        li.className = res.isCorrect === 'Correct' ? 'text-green-600 font-bold' : 'text-red-600';
-        li.innerText = `${studentName} -> Opt ${selectedOption} (${res.isCorrect})`;
-        log.prepend(li);
+      .then(() => {
+        syncState();
       }).catch(err => console.error("Error saving:", err));
     }
 
@@ -199,8 +277,9 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'addBulkQuestions', questionsList: questionsList })
       }).then(() => {
-        alert("Success!");
+        alert("Questions uploaded successfully!");
         document.getElementById('bulkInput').value = '';
+        switchTab('scanner');
         loadData();
       });
     }
