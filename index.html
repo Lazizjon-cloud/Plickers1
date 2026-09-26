@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plickers Web App</title>
-  <!-- Tailwind CSS & QR Libraries -->
+  <!-- Tailwind CSS & jsQR Library -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   
   <style>
@@ -147,8 +147,9 @@
           </div>
 
           <!-- SCANNER CONTAINER -->
-          <div class="relative w-full bg-black rounded overflow-hidden" style="min-height: 220px;">
-            <div id="reader" class="w-full h-full"></div>
+          <div class="relative w-full bg-black rounded overflow-hidden flex items-center justify-center" style="min-height: 250px;">
+            <video id="webcam-video" class="hidden" playsinline></video>
+            <canvas id="qr-canvas" class="w-full h-full object-cover"></canvas>
           </div>
 
         </div>
@@ -316,8 +317,9 @@
       activeCardsState[String(i)] = (i <= 20);
     }
 
-    let html5QrCode = null;
+    let videoStream = null;
     let isScannerRunning = false;
+    let scanAnimationId = null;
     let scannedCache = new Set();
     let currentActiveQId = "";
     let isUserSelecting = false;
@@ -1085,50 +1087,111 @@
       }, 500);
     }
 
+    /* -------------------------------------------------------------
+       ROTATION-AWARE CAMERA ENGINE (jsQR)
+    ------------------------------------------------------------- */
     async function startScanner() {
-      if (html5QrCode) await stopScanner();
-      html5QrCode = new Html5Qrcode("reader");
-
+      if (isScannerRunning) await stopScanner();
+      
+      const video = document.getElementById('webcam-video');
       try {
-        let devices = await Html5Qrcode.getCameras();
-        if (!devices || devices.length === 0) {
-          alert("No camera found on this device.");
-          return;
-        }
-        let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = videoStream;
+        video.setAttribute("playsinline", true);
+        await video.play();
         
-        await html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: { width: 200, height: 200 } },
-          onScanSuccess,
-          () => {}
-        );
         isScannerRunning = true;
-      } catch (err) { alert("Scanner initialization failed: " + err); }
-    }
-
-    async function stopScanner() {
-      if (html5QrCode && isScannerRunning) {
-        try {
-          isScannerRunning = false;
-          await html5QrCode.stop();
-          html5QrCode.clear();
-          html5QrCode = null;
-        } catch(e) {
-          console.error("Stop scanner error:", e);
-        }
+        scanAnimationId = requestAnimationFrame(tickScanner);
+      } catch (err) {
+        alert("Camera initialization failed: " + err);
       }
     }
 
-    function onScanSuccess(decodedText) {
-      let studentId = decodedText.trim();
+    async function stopScanner() {
+      isScannerRunning = false;
+      if (scanAnimationId) cancelAnimationFrame(scanAnimationId);
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+    }
+
+    function tickScanner() {
+      if (!isScannerRunning) return;
+
+      const video = document.getElementById('webcam-video');
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
+
+        if (code) {
+          drawQRBoundingBox(ctx, code.location);
+          processDetectedQR(code);
+        }
+      }
+      scanAnimationId = requestAnimationFrame(tickScanner);
+    }
+
+    function drawQRBoundingBox(ctx, location) {
+      function drawLine(begin, end) {
+        ctx.beginPath();
+        ctx.moveTo(begin.x, begin.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#10B981";
+        ctx.stroke();
+      }
+      drawLine(location.topLeftCorner, location.topRightCorner);
+      drawLine(location.topRightCorner, location.bottomRightCorner);
+      drawLine(location.bottomRightCorner, location.bottomLeftCorner);
+      drawLine(location.bottomLeftCorner, location.topLeftCorner);
+
+      ctx.fillStyle = "#EF4444";
+      ctx.beginPath();
+      ctx.arc(location.topLeftCorner.x, location.topLeftCorner.y, 6, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function processDetectedQR(code) {
+      let studentId = code.data.trim();
       
       if (activeCardsState[studentId] === false) return;
 
       let questionId = document.getElementById('questionSelect').value;
-      if (!questionId) return alert("Select a question first.");
-      
-      let cacheKey = `${questionId}-${studentId}`;
+      if (!questionId) return;
+
+      // 1. Compute Orientation Angle using Top-Left and Top-Right Corners
+      const p0 = code.location.topLeftCorner;
+      const p1 = code.location.topRightCorner;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      if (angle < 0) angle += 360;
+
+      // 2. Map Angle Segment to Choice (A, B, C, D)
+      let selectedAnswer = "A";
+      if (angle >= 45 && angle < 135) {
+        selectedAnswer = "B";
+      } else if (angle >= 135 && angle < 225) {
+        selectedAnswer = "C";
+      } else if (angle >= 225 && angle < 315) {
+        selectedAnswer = "D";
+      }
+
+      // 3. Prevent Rapid Duplicates
+      let cacheKey = `${questionId}-${studentId}-${selectedAnswer}`;
       if (scannedCache.has(cacheKey)) return; 
       scannedCache.add(cacheKey);
 
@@ -1136,7 +1199,7 @@
         action: 'saveResponse',
         questionId: questionId,
         studentId: studentId,
-        selectedAnswer: 'A'
+        selectedAnswer: selectedAnswer
       };
 
       fetch(API_URL, {
