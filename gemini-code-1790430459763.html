@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plickers Web App</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+  <div class="container mx-auto p-4 max-w-md">
+    <header class="bg-blue-600 text-white p-4 rounded-lg shadow-md mb-4 flex justify-between items-center">
+      <h1 class="text-sm font-bold">Plickers Web App</h1>
+      <div class="space-x-1">
+        <button onclick="switchTab('scanner')" class="bg-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-800">Scanner</button>
+        <button onclick="switchTab('bulk')" class="bg-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-800">Bulk</button>
+        <button onclick="switchTab('cards')" class="bg-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-800">Cards</button>
+      </div>
+    </header>
+
+    <div id="tab-scanner" class="bg-white p-4 rounded-lg shadow-md mb-4">
+      <h2 class="text-md font-semibold mb-2 text-gray-700">Live Classroom Scanner</h2>
+      
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-600 mb-1">Select Question:</label>
+        <select id="questionSelect" class="w-full p-2 border border-gray-300 rounded-md text-sm"></select>
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-600 mb-1">Answer Option Being Scanned:</label>
+        <div id="optionButtons" class="flex space-x-2">
+          <button onclick="setOption('A')" class="opt-btn flex-1 bg-blue-600 text-white py-2 rounded font-bold text-sm">A</button>
+          <button onclick="setOption('B')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">B</button>
+          <button onclick="setOption('C')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">C</button>
+          <button onclick="setOption('D')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">D</button>
+        </div>
+      </div>
+
+      <div class="mb-3 flex space-x-2">
+        <button onclick="startScanner()" class="flex-1 bg-green-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-green-700">Start Camera</button>
+        <button onclick="stopScanner()" class="flex-1 bg-red-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-red-700">Stop Camera</button>
+      </div>
+
+      <div id="reader" class="w-full mb-3 bg-black rounded overflow-hidden" style="min-height: 250px;"></div>
+
+      <div class="bg-gray-50 p-3 rounded border">
+        <h3 class="font-semibold text-xs text-gray-700 mb-1">Scanned Results Log:</h3>
+        <ul id="scanLog" class="text-xs text-gray-600 space-y-1 max-h-32 overflow-y-auto"></ul>
+      </div>
+    </div>
+
+    <div id="tab-bulk" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <h2 class="text-md font-semibold mb-2 text-gray-700">Add Bulk Questions</h2>
+      <textarea id="bulkInput" rows="6" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="Q1 | What is 2+2? | 3 | 4 | 5 | 6 | B"></textarea>
+      <button onclick="submitBulk()" class="mt-3 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700">Upload Bulk Questions</button>
+    </div>
+
+    <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <h2 class="text-md font-semibold mb-2 text-gray-700">Student QR Cards</h2>
+      <div id="cardsContainer" class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto p-1"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE ---
+    const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL"; 
+    
+    let appData = { questions: [], students: {}, studentList: [] };
+    let selectedOption = 'A';
+    let html5QrCode = null;
+    let scannedCache = new Set();
+
+    window.onload = function() { loadData(); };
+
+    function switchTab(tab) {
+      document.getElementById('tab-scanner').classList.toggle('hidden', tab !== 'scanner');
+      document.getElementById('tab-bulk').classList.toggle('hidden', tab !== 'bulk');
+      document.getElementById('tab-cards').classList.toggle('hidden', tab !== 'cards');
+      if (tab === 'cards') renderStudentCards();
+    }
+
+    function loadData() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          appData = data;
+          let select = document.getElementById('questionSelect');
+          select.innerHTML = '';
+          if(data.questions.length === 0) {
+            select.innerHTML = '<option>No questions found. Add via Bulk tab.</option>';
+          } else {
+            data.questions.forEach(q => {
+              let opt = document.createElement('option');
+              opt.value = q.id;
+              opt.text = `${q.id}: ${q.text}`;
+              select.appendChild(opt);
+            });
+          }
+        }).catch(err => alert("Error connecting to database: " + err));
+    }
+
+    function setOption(opt) {
+      selectedOption = opt;
+      document.querySelectorAll('.opt-btn').forEach(b => {
+        b.classList.remove('bg-blue-600', 'text-white');
+        b.classList.add('bg-gray-200');
+        if (b.innerText === opt) {
+          b.classList.add('bg-blue-600', 'text-white');
+          b.classList.remove('bg-gray-200');
+        }
+      });
+      scannedCache.clear();
+    }
+
+    async function startScanner() {
+      if (html5QrCode) await stopScanner();
+      
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      } catch (err) {
+        alert("Camera permission blocked. Please allow camera access in your browser settings.");
+        return;
+      }
+
+      html5QrCode = new Html5Qrcode("reader");
+      try {
+        let devices = await Html5Qrcode.getCameras();
+        let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
+        
+        await html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: { width: 200, height: 200 } },
+          onScanSuccess,
+          () => {}
+        );
+      } catch (err) {
+        alert("Scanner initialization failed: " + err);
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        html5QrCode.clear();
+        html5QrCode = null;
+      }
+    }
+
+    function onScanSuccess(decodedText) {
+      let studentId = decodedText.trim();
+      let questionId = document.getElementById('questionSelect').value;
+      if (!questionId || questionId.startsWith("No questions")) return alert("Select a question first.");
+      
+      let cacheKey = `${questionId}-${selectedOption}-${studentId}`;
+      if (scannedCache.has(cacheKey)) return; 
+      scannedCache.add(cacheKey);
+
+      let studentName = appData.students[studentId] || studentId;
+
+      let payload = {
+        action: 'saveResponse',
+        questionId: questionId,
+        studentId: studentId,
+        selectedAnswer: selectedOption
+      };
+
+      // Using text/plain to avoid CORS preflight failures with GAS
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(res => {
+        let log = document.getElementById('scanLog');
+        let li = document.createElement('li');
+        li.className = res.isCorrect === 'Correct' ? 'text-green-600 font-bold' : 'text-red-600';
+        li.innerText = `${studentName} -> Opt ${selectedOption} (${res.isCorrect})`;
+        log.prepend(li);
+      }).catch(err => console.error("Error saving:", err));
+    }
+
+    function submitBulk() {
+      let rawText = document.getElementById('bulkInput').value.trim();
+      if (!rawText) return;
+      
+      let lines = rawText.split('\n');
+      let questionsList = [];
+      lines.forEach(line => {
+        let parts = line.split('|').map(p => p.trim());
+        if (parts.length >= 7) {
+          questionsList.push({ id: parts[0], text: parts[1], a: parts[2], b: parts[3], c: parts[4], d: parts[5], correct: parts[6] });
+        }
+      });
+
+      if (questionsList.length === 0) return alert("Formatting error.");
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addBulkQuestions', questionsList: questionsList })
+      }).then(() => {
+        alert("Success!");
+        document.getElementById('bulkInput').value = '';
+        loadData();
+      });
+    }
+
+    function renderStudentCards() {
+      let container = document.getElementById('cardsContainer');
+      container.innerHTML = '';
+      if (!appData.studentList) return;
+      
+      appData.studentList.forEach(s => {
+        let cardDiv = document.createElement('div');
+        cardDiv.className = 'border p-2 rounded text-center bg-gray-50 flex flex-col items-center';
+        cardDiv.innerHTML = `<div class="font-bold text-xs mb-1 text-gray-700">${s.id}: ${s.name}</div>`;
+        let qrDiv = document.createElement('div');
+        cardDiv.appendChild(qrDiv);
+        container.appendChild(cardDiv);
+        new QRCode(qrDiv, { text: s.id, width: 80, height: 80 });
+      });
+    }
+  </script>
+</body>
+</html>
