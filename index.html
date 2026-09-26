@@ -10,7 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   
   <style>
-    /* PRINT STYLES: Forces 1 Card per Page */
+    /* PRINT STYLES: 1 Card per Page, Large QR, NO STUDENT NAMES */
     @media print {
       body * {
         visibility: hidden;
@@ -291,10 +291,10 @@
       <div class="flex justify-between items-center mb-3">
         <div>
           <h2 class="text-md font-bold text-gray-800">Student Cards & Activation</h2>
-          <p class="text-xs text-gray-500">Enable or disable student cards depending on class size and attendance.</p>
+          <p class="text-xs text-gray-500">Digital cards show mapped student names. Printed cards only contain Card # and QR codes for reusability across groups.</p>
         </div>
         <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-2 rounded shadow">
-          🖨️ Print Cards (1 per Page)
+          🖨️ Print Cards (1 per Page - No Names)
         </button>
       </div>
       <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
@@ -318,6 +318,7 @@
     }
 
     let html5QrCode = null;
+    let isScannerRunning = false;
     let scannedCache = new Set();
     let currentActiveQId = "";
     let isUserSelecting = false;
@@ -616,10 +617,12 @@
 
       let banner = document.getElementById('completionBanner');
 
+      // Check if all active students have scanned
       if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
         banner.classList.remove('hidden');
-        // AUTO-STOP CAMERA ON COMPLETION
-        if (html5QrCode) {
+        
+        // AUTO-STOP CAMERA LOGIC
+        if (isScannerRunning) {
           stopScanner();
         }
       } else {
@@ -927,6 +930,7 @@
       });
     }
 
+    // --- DIGITAL CARDS (SHOWS MAPPED STUDENT NAMES) ---
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -961,7 +965,7 @@
       renderStudentCards();
     }
 
-    // --- PRINT CARDS FUNCTIONALITY (1 CARD PER PAGE) ---
+    // --- PRINTABLE CARDS (REUSABLE - EXCLUDES STUDENT NAMES) ---
     function printActiveCards() {
       let printContainer = document.getElementById('printArea');
       printContainer.innerHTML = '';
@@ -979,21 +983,18 @@
         pageDiv.className = 'print-card-page';
 
         pageDiv.innerHTML = `
-          <div style="font-size: 3rem; font-weight: 800; margin-bottom: 0.5rem; text-transform: uppercase;">
+          <div style="font-size: 4rem; font-weight: 800; margin-bottom: 2rem; text-transform: uppercase;">
             CARD #${s.id}
           </div>
-          <div style="font-size: 2.25rem; font-weight: 700; color: #1f2937; margin-bottom: 2rem;">
-            ${s.name}
-          </div>
-          <div id="print-qr-${s.id}" style="padding: 1rem; border: 4px solid black; border-radius: 1rem; background: white;"></div>
+          <div id="print-qr-${s.id}" style="padding: 1.5rem; border: 5px solid black; border-radius: 1.5rem; background: white;"></div>
         `;
 
         printContainer.appendChild(pageDiv);
 
         new QRCode(document.getElementById(`print-qr-${s.id}`), {
           text: String(s.id),
-          width: 320,
-          height: 320
+          width: 380,
+          height: 380
         });
       });
 
@@ -1014,20 +1015,27 @@
           return;
         }
         let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
+        
         await html5QrCode.start(
           cameraId,
           { fps: 10, qrbox: { width: 200, height: 200 } },
           onScanSuccess,
           () => {}
         );
+        isScannerRunning = true;
       } catch (err) { alert("Scanner initialization failed: " + err); }
     }
 
     async function stopScanner() {
-      if (html5QrCode) {
-        await html5QrCode.stop();
-        html5QrCode.clear();
-        html5QrCode = null;
+      if (html5QrCode && isScannerRunning) {
+        try {
+          isScannerRunning = false;
+          await html5QrCode.stop();
+          html5QrCode.clear();
+          html5QrCode = null;
+        } catch(e) {
+          console.error("Stop scanner error:", e);
+        }
       }
     }
 
