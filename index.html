@@ -8,9 +8,37 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <style>
+    /* PRINT STYLES: Forces 1 Card per Page */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printArea, #printArea * {
+        visibility: visible;
+      }
+      #printArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+      .print-card-page {
+        page-break-after: always;
+        break-after: page;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+      }
+    }
+  </style>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
-  <div class="container mx-auto p-3 max-w-6xl">
+  <div class="container mx-auto p-3 max-w-6xl no-print">
     
     <!-- TOP NAVIGATION & ADJUSTABLE TIMER -->
     <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
@@ -118,11 +146,8 @@
             </button>
           </div>
 
-          <!-- SCANNER CONTAINER WITH OVERLAY NOTIFICATION -->
+          <!-- SCANNER CONTAINER -->
           <div class="relative w-full bg-black rounded overflow-hidden" style="min-height: 220px;">
-            <div id="scannerOverlayBanner" class="hidden absolute top-2 left-2 right-2 z-30 p-2.5 bg-emerald-600 text-white font-extrabold text-xs rounded shadow-lg text-center animate-bounce border-2 border-white">
-              🎉 ALL STUDENTS HAVE COMPLETED!
-            </div>
             <div id="reader" class="w-full h-full"></div>
           </div>
 
@@ -261,23 +286,29 @@
       </div>
     </div>
 
-    <!-- TAB 5: STUDENT CARDS -->
+    <!-- TAB 5: STUDENT CARDS & PRINTING -->
     <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <div class="flex justify-between items-center mb-3">
         <div>
           <h2 class="text-md font-bold text-gray-800">Student Cards & Activation</h2>
           <p class="text-xs text-gray-500">Enable or disable student cards depending on class size and attendance.</p>
         </div>
+        <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-2 rounded shadow">
+          🖨️ Print Cards (1 per Page)
+        </button>
       </div>
       <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
     </div>
 
   </div>
 
+  <!-- PRINT CONTAINER (ONLY VISIBLE ON PRINT) -->
+  <div id="printArea" class="hidden"></div>
+
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
-    let groupsData = {}; // Format: { "Group Name": [ { id: "1", name: "John" } ] }
+    let groupsData = {}; 
     let currentGroupName = "";
     
     // Default 20 Active / 80 Inactive setup
@@ -414,7 +445,6 @@
         }).catch(err => console.error("Sync error: ", err));
     }
 
-    // Generate ordered card list from 1 to 100
     function getOrderedUniqueStudents() {
       let list = [];
       let studentMap = {};
@@ -585,14 +615,15 @@
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
       let banner = document.getElementById('completionBanner');
-      let overlayBanner = document.getElementById('scannerOverlayBanner');
 
       if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
         banner.classList.remove('hidden');
-        overlayBanner.classList.remove('hidden');
+        // AUTO-STOP CAMERA ON COMPLETION
+        if (html5QrCode) {
+          stopScanner();
+        }
       } else {
         banner.classList.add('hidden');
-        overlayBanner.classList.add('hidden');
       }
 
       if (!validLogs || validLogs.length === 0) {
@@ -740,7 +771,6 @@
       }).then(() => loadData());
     }
 
-    // --- GROUPS MANAGEMENT SYSTEM ---
     function renderGroupsTab() {
       let select = document.getElementById('groupSelect');
       let savedGroups = JSON.parse(localStorage.getItem('plickers_groups') || '{}');
@@ -826,11 +856,9 @@
       if (!name || !cardNum) return alert("Provide both student name and card number.");
 
       let groupList = groupsData[currentGroupName] || [];
-      // Remove existing entry for card if present
       groupList = groupList.filter(s => String(s.id) !== String(cardNum));
       groupList.push({ id: String(cardNum), name: name });
 
-      // Sort by card ID
       groupList.sort((a, b) => parseInt(a.id) - parseInt(b.id));
 
       groupsData[currentGroupName] = groupList;
@@ -874,7 +902,6 @@
     }
 
     function syncGroupToRoster(groupList) {
-      // Deactivate all cards, then activate only the ones in this group
       for (let i = 1; i <= 100; i++) {
         activeCardsState[String(i)] = false;
       }
@@ -900,7 +927,6 @@
       });
     }
 
-    // --- RENDER CARDS GRID ---
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -933,6 +959,48 @@
     function toggleCardStatus(sId) {
       activeCardsState[sId] = !activeCardsState[sId];
       renderStudentCards();
+    }
+
+    // --- PRINT CARDS FUNCTIONALITY (1 CARD PER PAGE) ---
+    function printActiveCards() {
+      let printContainer = document.getElementById('printArea');
+      printContainer.innerHTML = '';
+      printContainer.classList.remove('hidden');
+
+      let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
+
+      if (activeStudents.length === 0) {
+        alert("No active cards selected to print.");
+        return;
+      }
+
+      activeStudents.forEach(s => {
+        let pageDiv = document.createElement('div');
+        pageDiv.className = 'print-card-page';
+
+        pageDiv.innerHTML = `
+          <div style="font-size: 3rem; font-weight: 800; margin-bottom: 0.5rem; text-transform: uppercase;">
+            CARD #${s.id}
+          </div>
+          <div style="font-size: 2.25rem; font-weight: 700; color: #1f2937; margin-bottom: 2rem;">
+            ${s.name}
+          </div>
+          <div id="print-qr-${s.id}" style="padding: 1rem; border: 4px solid black; border-radius: 1rem; background: white;"></div>
+        `;
+
+        printContainer.appendChild(pageDiv);
+
+        new QRCode(document.getElementById(`print-qr-${s.id}`), {
+          text: String(s.id),
+          width: 320,
+          height: 320
+        });
+      });
+
+      setTimeout(() => {
+        window.print();
+        printContainer.classList.add('hidden');
+      }, 500);
     }
 
     async function startScanner() {
@@ -989,7 +1057,6 @@
       }).then(() => syncState()).catch(err => console.error("Error saving scan:", err));
     }
 
-    // --- AUTOMATIC QUESTION ENUMERATION ---
     function submitBulk() {
       let rawText = document.getElementById('bulkInput').value.trim();
       let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
