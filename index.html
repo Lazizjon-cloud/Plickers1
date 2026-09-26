@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Plickers Web App</title>
-  <!-- Tailwind CSS & jsQR Library -->
+  <title>Plickers Web App - Enhanced Edition</title>
+  <!-- Tailwind CSS & QR Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -37,32 +37,39 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+<body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800">
   <div class="container mx-auto p-3 max-w-6xl no-print">
     
     <!-- TOP NAVIGATION & ADJUSTABLE TIMER -->
     <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
-      <h1 class="text-sm font-bold tracking-wide">Plickers Web App</h1>
+      <div class="flex items-center space-x-2">
+        <h1 class="text-base font-extrabold tracking-wide">Plickers Web App</h1>
+        <span class="text-[10px] bg-blue-800 text-blue-200 px-2 py-0.5 rounded-full font-semibold">Pro Edition</span>
+      </div>
       
-      <!-- TOP-CENTER ADJUSTABLE TIMER -->
-      <div class="bg-blue-800 px-3 py-1 rounded-lg border border-blue-400 flex items-center space-x-2 shadow-inner">
-        <span class="text-xs font-semibold text-blue-200">⏱️ Timer (s):</span>
+      <!-- TOP-CENTER ADJUSTABLE TIMER WITH PROGRESS -->
+      <div class="bg-blue-800 px-3 py-1.5 rounded-lg border border-blue-400 flex items-center space-x-2 shadow-inner">
+        <span class="text-xs font-semibold text-blue-200">⏱️ Timer:</span>
         <input type="number" id="timerInput" value="30" min="5" max="3600" onchange="onTimerInputChange()" class="w-14 bg-blue-900 border border-blue-400 rounded text-center text-xs font-bold text-yellow-300 focus:outline-none p-0.5">
-        <span id="timerDisplay" class="font-mono font-bold text-sm text-yellow-300">00:30</span>
+        <span id="timerDisplay" class="font-mono font-bold text-sm text-yellow-300 min-w-[45px]">00:30</span>
         <div class="flex space-x-1">
-          <button onclick="startTimer()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">Start</button>
-          <button onclick="pauseTimer()" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">Pause</button>
-          <button onclick="resetTimer()" class="bg-gray-600 hover:bg-gray-700 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">Reset</button>
+          <button onclick="startTimer()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-0.5 rounded font-bold transition">Start</button>
+          <button onclick="pauseTimer()" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] px-2 py-0.5 rounded font-bold transition">Pause</button>
+          <button onclick="resetTimer()" class="bg-gray-600 hover:bg-gray-700 text-white text-[10px] px-2 py-0.5 rounded font-bold transition">Reset</button>
+        </div>
+        <div class="flex items-center space-x-1 ml-2 pl-2 border-l border-blue-700">
+          <input type="checkbox" id="chkAutoLock" class="rounded text-blue-500 focus:ring-0 cursor-pointer">
+          <label for="chkAutoLock" class="text-[10px] text-blue-200 cursor-pointer font-medium" title="Automatically stop scanner when time reaches 0">Auto-Lock</label>
         </div>
       </div>
 
       <!-- NAV BUTTONS -->
       <div class="flex space-x-1 text-xs">
-        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Scanner</button>
-        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Results & Reports</button>
-        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Questions</button>
-        <button onclick="switchTab('groups')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Groups</button>
-        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Cards</button>
+        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Scanner</button>
+        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Results & Reports</button>
+        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Questions</button>
+        <button onclick="switchTab('groups')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Groups</button>
+        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Cards</button>
       </div>
     </header>
 
@@ -70,21 +77,58 @@
     <div id="tab-scanner" class="mb-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        <!-- LEFT HALF: Live Student Responses -->
+        <!-- LEFT HALF: Live Student Responses & Dynamic Breakdown -->
         <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
-          <div class="flex justify-between items-center mb-2 border-b pb-2">
-            <h3 class="font-bold text-sm text-gray-800">Live Student Responses</h3>
-            <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-[11px] bg-gray-200 hover:bg-gray-300 font-semibold px-2 py-1 rounded text-gray-700">
-              👁️ Reveal All Responses
-            </button>
+          <div class="flex justify-between items-center mb-2 border-b pb-2 flex-wrap gap-1">
+            <h3 class="font-bold text-sm text-gray-800 flex items-center gap-1.5">
+              <span>Live Responses</span>
+              <span id="responseCountBadge" class="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0/0</span>
+            </h3>
+            <div class="flex space-x-1">
+              <button onclick="toggleRevealCorrect()" id="btnRevealCorrect" class="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold px-2 py-1 rounded">
+                💡 Reveal Correct Answer
+              </button>
+              <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-[10px] bg-gray-200 hover:bg-gray-300 font-semibold px-2 py-1 rounded text-gray-700">
+                👁️ Reveal Responses
+              </button>
+            </div>
           </div>
           
           <div id="completionBanner" class="hidden mb-2 p-2 bg-emerald-100 border border-emerald-400 text-emerald-800 font-bold text-xs rounded text-center animate-bounce">
             🎉 All active students have submitted their answers!
           </div>
 
+          <!-- RESPONSE DISTRIBUTION MATRIX -->
+          <div class="mb-3 p-2 bg-gray-50 border rounded-lg">
+            <div class="text-[11px] font-bold text-gray-600 mb-1.5 flex justify-between">
+              <span>Answer Distribution</span>
+              <span id="totalRespondedPct" class="text-blue-600 font-extrabold">0% Responded</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-bold mb-1.5">
+              <div class="p-1.5 bg-blue-50 border border-blue-200 rounded">
+                <span class="text-blue-700">A: </span><span id="distCountA">0</span>
+              </div>
+              <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded">
+                <span class="text-emerald-700">B: </span><span id="distCountB">0</span>
+              </div>
+              <div class="p-1.5 bg-amber-50 border border-amber-200 rounded">
+                <span class="text-amber-700">C: </span><span id="distCountC">0</span>
+              </div>
+              <div class="p-1.5 bg-rose-50 border border-rose-200 rounded">
+                <span class="text-rose-700">D: </span><span id="distCountD">0</span>
+              </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 rounded-full h-2 flex overflow-hidden">
+              <div id="barA" class="bg-blue-600 h-full" style="width: 0%"></div>
+              <div id="barB" class="bg-emerald-600 h-full" style="width: 0%"></div>
+              <div id="barC" class="bg-amber-500 h-full" style="width: 0%"></div>
+              <div id="barD" class="bg-rose-600 h-full" style="width: 0%"></div>
+            </div>
+          </div>
+
           <p id="sortNoticeText" class="text-[11px] text-gray-500 mb-2 italic">Showing responses in order of submission time.</p>
-          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[500px]"></ul>
+          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[400px]"></ul>
         </div>
 
         <!-- RIGHT HALF: Question Selectors, Classroom Display & Camera -->
@@ -129,27 +173,36 @@
               Select a question to display...
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-bold">
-              <div id="dispOptA" class="p-2.5 bg-blue-700 rounded-lg text-white shadow">A: -</div>
-              <div id="dispOptB" class="p-2.5 bg-emerald-700 rounded-lg text-white shadow">B: -</div>
-              <div id="dispOptC" class="p-2.5 bg-amber-600 rounded-lg text-white shadow">C: -</div>
-              <div id="dispOptD" class="p-2.5 bg-rose-700 rounded-lg text-white shadow">D: -</div>
+              <div id="dispOptA" class="p-2.5 bg-blue-700 rounded-lg text-white shadow transition-all">A: -</div>
+              <div id="dispOptB" class="p-2.5 bg-emerald-700 rounded-lg text-white shadow transition-all">B: -</div>
+              <div id="dispOptC" class="p-2.5 bg-amber-600 rounded-lg text-white shadow transition-all">C: -</div>
+              <div id="dispOptD" class="p-2.5 bg-rose-700 rounded-lg text-white shadow transition-all">D: -</div>
+            </div>
+            <div id="explanationBox" class="hidden mt-3 p-2 bg-yellow-900/60 border border-yellow-500 rounded text-xs text-yellow-200 leading-normal">
+              <span class="font-bold">💡 Explanation:</span> <span id="dispExplanation">-</span>
             </div>
           </div>
 
-          <!-- Camera Controls -->
-          <div class="mb-3 flex space-x-2">
-            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
-              Start Camera
+          <!-- Camera Controls & Audio Toggle -->
+          <div class="mb-3 flex items-center space-x-2">
+            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition">
+              ▶️ Start Camera
             </button>
-            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
-              Stop Camera
+            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition">
+              ⏹️ Stop Camera
+            </button>
+            <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700" title="Toggle audio feedback on scan">
+              🔔 Beep: ON
             </button>
           </div>
 
           <!-- SCANNER CONTAINER -->
-          <div class="relative w-full bg-black rounded overflow-hidden flex items-center justify-center" style="min-height: 250px;">
+          <div class="relative w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-gray-700" style="min-height: 250px;">
             <video id="webcam-video" class="hidden" playsinline></video>
             <canvas id="qr-canvas" class="w-full h-full object-cover"></canvas>
+            <div id="scanIndicator" class="hidden absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-extrabold px-2 py-1 rounded shadow animate-pulse">
+              ✓ Scan Registered
+            </div>
           </div>
 
         </div>
@@ -160,8 +213,14 @@
     <!-- TAB 2: RESULTS & RANKINGS -->
     <div id="tab-history" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-        <h2 class="text-md font-bold text-gray-800">Class Performance & Rankings</h2>
-        <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Clear History</button>
+        <div>
+          <h2 class="text-md font-bold text-gray-800">Class Performance & Rankings</h2>
+          <p class="text-xs text-gray-500">Live updated scores across all active sessions.</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">📥 Export CSV</button>
+          <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">Clear History</button>
+        </div>
       </div>
       
       <div id="historyStats" class="grid grid-cols-3 gap-2 mb-4 text-center text-xs">
@@ -197,11 +256,22 @@
 
     <!-- TAB 3: QUESTION & FOLDER MANAGEMENT -->
     <div id="tab-bulk" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <h2 class="text-md font-bold mb-3 text-gray-800">Question & Folder Management</h2>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-md font-bold text-gray-800">Question & Folder Management</h2>
+        <button onclick="loadDemoQuestions()" class="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold">
+          ✨ Pre-fill Demo Questions
+        </button>
+      </div>
       
-      <div class="mb-3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Target Folder Name:</label>
-        <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Grammar Unit 1">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Target Folder Name:</label>
+          <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Grammar Unit 1">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Search Loaded Questions:</label>
+          <input type="text" id="searchQuestionInput" onkeyup="renderFolderManagement()" class="w-full p-2 border border-gray-300 rounded text-xs" placeholder="Search by text or folder...">
+        </div>
       </div>
 
       <div class="mb-3">
@@ -211,7 +281,7 @@
         <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
       </div>
 
-      <button onclick="submitBulk()" class="mb-5 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700">Upload Questions to Folder</button>
+      <button onclick="submitBulk()" class="mb-5 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700 transition">Upload Questions to Folder</button>
 
       <hr class="my-4">
       <h3 class="text-xs font-bold text-gray-700 mb-2">Existing Folders & Questions</h3>
@@ -325,6 +395,8 @@
     let isUserSelecting = false;
     let revealedStudents = new Set();
     let revealAll = false;
+    let revealCorrect = false;
+    let audioEnabled = true;
 
     let selectedFolders = [];
     let customQuestionOrder = null;
@@ -332,11 +404,35 @@
     let timerTime = 30;
     let timerInterval = null;
 
+    // Web Audio API Context for scanning feedback
+    let audioCtx = null;
+
     window.onload = function() { 
       currentGroupName = localStorage.getItem('plickers_active_group') || "";
       loadData(); 
       setInterval(syncState, 2500); 
     };
+
+    function playBeepSound() {
+      if (!audioEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 tone
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) { console.error("Audio error", e); }
+    }
+
+    function toggleAudioBeep() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btnAudioToggle').innerText = audioEnabled ? "🔔 Beep: ON" : "🔕 Beep: OFF";
+    }
 
     function onTimerInputChange() {
       let val = parseInt(document.getElementById('timerInput').value) || 30;
@@ -376,6 +472,10 @@
     }
 
     function handleTimerExpired() {
+      if (document.getElementById('chkAutoLock').checked && isScannerRunning) {
+        stopScanner();
+      }
+
       alert("⏱️ Time is up! Registering unanswered active students as incorrect...");
       
       let qId = document.getElementById('questionSelect').value;
@@ -587,6 +687,8 @@
       if (!qId) return;
 
       isUserSelecting = true;
+      revealCorrect = false;
+      document.getElementById('explanationBox').classList.add('hidden');
       updateActiveQuestionUI(qId);
       resetTimer();
 
@@ -604,11 +706,39 @@
       let q = (appData.questions || []).find(item => String(item.id) === String(qId));
       if (q) {
         document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
-        document.getElementById('dispOptA').innerHTML = `<b>A:</b> ${q.a || '-'}`;
-        document.getElementById('dispOptB').innerHTML = `<b>B:</b> ${q.b || '-'}`;
-        document.getElementById('dispOptC').innerHTML = `<b>C:</b> ${q.c || '-'}`;
-        document.getElementById('dispOptD').innerHTML = `<b>D:</b> ${q.d || '-'}`;
+        
+        let optA = document.getElementById('dispOptA');
+        let optB = document.getElementById('dispOptB');
+        let optC = document.getElementById('dispOptC');
+        let optD = document.getElementById('dispOptD');
+
+        optA.innerHTML = `<b>A:</b> ${q.a || '-'}`;
+        optB.innerHTML = `<b>B:</b> ${q.b || '-'}`;
+        optC.innerHTML = `<b>C:</b> ${q.c || '-'}`;
+        optD.innerHTML = `<b>D:</b> ${q.d || '-'}`;
+
+        // Reset highlight styles
+        [optA, optB, optC, optD].forEach(el => el.classList.remove('ring-4', 'ring-yellow-400', 'scale-[1.02]'));
+
+        if (revealCorrect) {
+          let correctKey = (q.correct || 'A').toUpperCase().trim();
+          if (correctKey === 'A') optA.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'B') optB.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'C') optC.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'D') optD.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+
+          if (q.explanation) {
+            document.getElementById('dispExplanation').innerText = q.explanation;
+            document.getElementById('explanationBox').classList.remove('hidden');
+          }
+        }
       }
+    }
+
+    function toggleRevealCorrect() {
+      revealCorrect = !revealCorrect;
+      document.getElementById('btnRevealCorrect').innerText = revealCorrect ? "🙈 Hide Correct Answer" : "💡 Reveal Correct Answer";
+      updateActiveQuestionUI(currentActiveQId);
     }
 
     function toggleRevealSingle(studentId) {
@@ -622,7 +752,7 @@
 
     function toggleRevealAll() {
       revealAll = !revealAll;
-      document.getElementById('btnRevealAll').innerText = revealAll ? "🔒 Hide All Responses" : "👁️ Reveal All Responses";
+      document.getElementById('btnRevealAll').innerText = revealAll ? "🔒 Hide Responses" : "👁️ Reveal Responses";
       renderLogs(appData.logs);
     }
 
@@ -656,6 +786,30 @@
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
+      // Update Response Count Badge
+      document.getElementById('responseCountBadge').innerText = `${validLogs.length}/${activeStudents.length}`;
+
+      // Update Answer Distribution
+      let counts = { A: 0, B: 0, C: 0, D: 0 };
+      validLogs.forEach(l => {
+        let ans = (l.selectedAnswer || '').toUpperCase();
+        if (counts[ans] !== undefined) counts[ans]++;
+      });
+
+      document.getElementById('distCountA').innerText = counts.A;
+      document.getElementById('distCountB').innerText = counts.B;
+      document.getElementById('distCountC').innerText = counts.C;
+      document.getElementById('distCountD').innerText = counts.D;
+
+      let totalLogs = validLogs.length || 1;
+      let pctResponded = activeStudents.length > 0 ? Math.round((validLogs.length / activeStudents.length) * 100) : 0;
+      document.getElementById('totalRespondedPct').innerText = `${pctResponded}% Responded`;
+
+      document.getElementById('barA').style.width = `${(counts.A / totalLogs) * 100}%`;
+      document.getElementById('barB').style.width = `${(counts.B / totalLogs) * 100}%`;
+      document.getElementById('barC').style.width = `${(counts.C / totalLogs) * 100}%`;
+      document.getElementById('barD').style.width = `${(counts.D / totalLogs) * 100}%`;
+
       let banner = document.getElementById('completionBanner');
       if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
         banner.classList.remove('hidden');
@@ -664,7 +818,7 @@
       }
 
       if (!validLogs || validLogs.length === 0) {
-        logUl.innerHTML = '<li class="text-gray-400 italic p-2 border rounded bg-gray-50">No responses scanned yet for this question.</li>';
+        logUl.innerHTML = '<li class="text-gray-400 italic p-2 border rounded bg-gray-50 text-center">No responses scanned yet for this question.</li>';
         return;
       }
 
@@ -684,7 +838,7 @@
       let noticeText = document.getElementById('sortNoticeText');
 
       if (revealAll) {
-        noticeText.innerText = "🏆 Automatically ranked by overall class score and correctness.";
+        noticeText.innerText = "🏆 Automatically ranked by overall score and correctness.";
         displayList.sort((a, b) => {
           let aIsCorrect = a.isCorrect === 'Correct' ? 1 : 0;
           let bIsCorrect = b.isCorrect === 'Correct' ? 1 : 0;
@@ -796,6 +950,25 @@
       }).join('');
     }
 
+    function exportToCSV() {
+      let logs = appData.allLogs || [];
+      if (logs.length === 0) return alert("No history data to export.");
+
+      let csvContent = "data:text/csv;charset=utf-8,Student ID,Student Name,Question ID,Selected Answer,Is Correct\n";
+      logs.forEach(l => {
+        let name = getStudentNameById(l.studentId).replace(/,/g, '');
+        csvContent += `${l.studentId},"${name}",${l.questionId},${l.selectedAnswer},${l.isCorrect}\n`;
+      });
+
+      let encodedUri = encodeURI(csvContent);
+      let link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `plickers_report_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
     function clearHistory() {
       if (!confirm("Are you sure you want to clear all response history?")) return;
       fetch(API_URL, {
@@ -812,12 +985,19 @@
       let container = document.getElementById('folderManageList');
       container.innerHTML = '';
       let folders = appData.folders || ["General"];
+      let searchTerm = (document.getElementById('searchQuestionInput').value || '').toLowerCase();
 
       folders.forEach(fName => {
+        let qInFolder = (appData.questions || []).filter(q => {
+          let matchesFolder = (q.folder || 'General') === fName;
+          let matchesSearch = !searchTerm || q.text.toLowerCase().includes(searchTerm) || fName.toLowerCase().includes(searchTerm);
+          return matchesFolder && matchesSearch;
+        });
+
+        if (searchTerm && qInFolder.length === 0) return;
+
         let folderBox = document.createElement('div');
         folderBox.className = 'border p-3 rounded bg-gray-50';
-        
-        let qInFolder = (appData.questions || []).filter(q => (q.folder || 'General') === fName);
         
         let headerHtml = `<div class="flex justify-between items-center mb-2">
           <span class="font-bold text-blue-700 text-sm">📁 ${fName} (${qInFolder.length} questions)</span>
@@ -825,15 +1005,25 @@
         </div>`;
 
         let listHtml = qInFolder.map(q => 
-          `<div class="flex justify-between items-center py-1 border-t text-xs">
-            <span class="truncate pr-2"><b>Q${q.id}:</b> ${q.text}</span>
-            <button onclick="deleteQuestion('${q.id}')" class="text-red-500 font-bold hover:underline">Delete</button>
+          `<div class="flex justify-between items-center py-1.5 border-t text-xs">
+            <span class="truncate pr-2"><b>Q${q.id}:</b> ${q.text} <span class="text-gray-400 font-mono">(Ans: ${q.correct})</span></span>
+            <div class="flex space-x-2">
+              <button onclick="deleteQuestion('${q.id}')" class="text-red-500 font-bold hover:underline">Delete</button>
+            </div>
           </div>`
         ).join('');
 
-        folderBox.innerHTML = headerHtml + (listHtml || '<div class="text-gray-400 italic">No questions.</div>');
+        folderBox.innerHTML = headerHtml + (listHtml || '<div class="text-gray-400 italic">No questions matching filter.</div>');
         container.appendChild(folderBox);
       });
+    }
+
+    function loadDemoQuestions() {
+      document.getElementById('targetFolderInput').value = "English Grammar";
+      document.getElementById('bulkInput').value = 
+        "She ___ to school every morning. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple.\n" +
+        "They ___ soccer yesterday afternoon. | played | play | playing | plays | A | Past simple tense requires '-ed'.\n" +
+        "Which word is a noun? | Quick | Run | Apple | Beautiful | C | 'Apple' is a concrete object noun.";
     }
 
     function deleteQuestion(qId) {
@@ -1163,6 +1353,12 @@
       ctx.fill();
     }
 
+    function showScanIndicator() {
+      let ind = document.getElementById('scanIndicator');
+      ind.classList.remove('hidden');
+      setTimeout(() => ind.classList.add('hidden'), 1000);
+    }
+
     function processDetectedQR(code) {
       let studentId = code.data.trim();
       
@@ -1171,7 +1367,7 @@
       let questionId = document.getElementById('questionSelect').value;
       if (!questionId) return;
 
-      // 1. Compute Orientation Angle using Top-Left and Top-Right Corners
+      // Compute Orientation Angle using Top-Left and Top-Right Corners
       const p0 = code.location.topLeftCorner;
       const p1 = code.location.topRightCorner;
       const dx = p1.x - p0.x;
@@ -1180,7 +1376,7 @@
       let angle = Math.atan2(dy, dx) * (180 / Math.PI);
       if (angle < 0) angle += 360;
 
-      // 2. Map Angle Segment to Choice (A, B, C, D)
+      // Map Angle Segment to Choice (A, B, C, D)
       let selectedAnswer = "A";
       if (angle >= 45 && angle < 135) {
         selectedAnswer = "B";
@@ -1190,10 +1386,13 @@
         selectedAnswer = "D";
       }
 
-      // 3. Prevent Rapid Duplicates
+      // Prevent Rapid Duplicates
       let cacheKey = `${questionId}-${studentId}-${selectedAnswer}`;
       if (scannedCache.has(cacheKey)) return; 
       scannedCache.add(cacheKey);
+
+      playBeepSound();
+      showScanIndicator();
 
       let payload = {
         action: 'saveResponse',
