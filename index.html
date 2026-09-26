@@ -30,12 +30,15 @@
       <!-- GRID LAYOUT: Left Half (Responses) | Right Half (Question & Camera Controls) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        <!-- LEFT HALF: Live Student Responses -->
+        <!-- LEFT HALF: Confidential Live Student Responses -->
         <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
-          <h3 class="font-bold text-sm text-gray-800 mb-2 border-b pb-2 flex items-center justify-between">
-            <span>Live Student Responses</span>
-            <span class="text-xs font-normal text-gray-500">Real-time sync</span>
-          </h3>
+          <div class="flex justify-between items-center mb-2 border-b pb-2">
+            <h3 class="font-bold text-sm text-gray-800">Live Student Responses</h3>
+            <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-[11px] bg-gray-200 hover:bg-gray-300 font-semibold px-2 py-1 rounded text-gray-700">
+              👁️ Reveal All Responses
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-500 mb-2 italic">Student selections are hidden by default to prevent copying during class.</p>
           <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[500px]"></ul>
         </div>
 
@@ -89,7 +92,7 @@
       <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
         <h2 class="text-md font-bold text-gray-800">Class Performance & History</h2>
         <div class="flex space-x-2">
-          <button onclick="downloadClassPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Download All Reports (PDF)</button>
+          <button onclick="downloadClassPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Download All Class Reports (PDF)</button>
           <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Clear History</button>
         </div>
       </div>
@@ -114,10 +117,10 @@
           <thead>
             <tr class="bg-gray-100 text-gray-700 border-b">
               <th class="p-2">Card / Student</th>
-              <th class="p-2">Answers</th>
+              <th class="p-2">Attempted</th>
               <th class="p-2">Correct</th>
-              <th class="p-2">Score</th>
-              <th class="p-2 text-right">PDF Report</th>
+              <th class="p-2">Score (%)</th>
+              <th class="p-2 text-right">PDF Full Report</th>
             </tr>
           </thead>
           <tbody id="studentScoreTable" class="divide-y text-gray-600"></tbody>
@@ -169,6 +172,8 @@
     let scannedCache = new Set();
     let currentActiveQId = "";
     let isUserSelecting = false;
+    let revealedStudents = new Set();
+    let revealAll = false;
 
     window.onload = function() { 
       loadData(); 
@@ -285,22 +290,48 @@
       }
     }
 
+    function toggleRevealSingle(studentId) {
+      if (revealedStudents.has(studentId)) {
+        revealedStudents.delete(studentId);
+      } else {
+        revealedStudents.add(studentId);
+      }
+      renderLogs(appData.logs);
+    }
+
+    function toggleRevealAll() {
+      revealAll = !revealAll;
+      document.getElementById('btnRevealAll').innerText = revealAll ? "🔒 Hide All Responses" : "👁️ Reveal All Responses";
+      renderLogs(appData.logs);
+    }
+
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
       if (!logs || logs.length === 0) {
-        logUl.innerHTML = '<li class="text-gray-400 italic p-2">No responses scanned yet for this question.</li>';
+        logUl.innerHTML = '<li class="text-gray-400 italic p-2 border rounded bg-gray-50">No responses scanned yet for this question.</li>';
         return;
       }
 
       logUl.innerHTML = logs.map(l => {
+        let isRevealed = revealAll || revealedStudents.has(l.studentId);
         let isCorrect = l.isCorrect === 'Correct';
-        let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
-        let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
-        
-        return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
-          <span><b>${l.studentName}</b> selected <b>${l.selectedAnswer}</b></span>
-          <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
-        </li>`;
+
+        if (isRevealed) {
+          let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+          let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
+          return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
+            <span><b>${l.studentName}</b> selected <b>Option ${l.selectedAnswer}</b></span>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
+              <button onclick="toggleRevealSingle('${l.studentId}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
+            </div>
+          </li>`;
+        } else {
+          return `<li class="p-2 border rounded flex justify-between items-center bg-blue-50 border-blue-200 text-blue-900">
+            <span><b>${l.studentName}</b> — Response Received 🔒</span>
+            <button onclick="toggleRevealSingle('${l.studentId}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
+          </li>`;
+        }
       }).reverse().join('');
     }
 
@@ -335,7 +366,7 @@
           <td class="p-2 text-green-600 font-bold">${st.correct}</td>
           <td class="p-2 font-semibold">${pct}%</td>
           <td class="p-2 text-right">
-            <button onclick="downloadStudentPDF('${sId}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">PDF Report</button>
+            <button onclick="downloadStudentPDF('${sId}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Generate PDF Report</button>
           </td>
         </tr>`;
       }).join('');
@@ -353,6 +384,7 @@
       });
     }
 
+    // --- FULL COMPREHENSIVE PDF REPORT GENERATION ---
     function buildStudentReportHTML(sId) {
       let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
       let sName = student ? student.name : ("Card #" + sId);
@@ -362,50 +394,88 @@
       let totalCount = sLogs.length;
       let pct = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
-      let itemsHtml = sLogs.map(l => {
+      let itemsRows = sLogs.map(l => {
         let q = (appData.questions || []).find(item => String(item.id) === String(l.questionId));
         let qText = q ? q.text : `Question #${l.questionId}`;
         let correctOpt = q ? q.correct : '-';
-        let explanation = q ? (q.explanation || 'No explanation provided.') : '';
+        let explanation = q ? (q.explanation || 'No explanation provided.') : 'Review standard grammar guidelines.';
 
         let isCorrect = l.isCorrect === 'Correct';
-        let badge = isCorrect 
-          ? `<span style="color: #16a34a; font-weight: bold;">CORRECT</span>` 
-          : `<span style="color: #dc2626; font-weight: bold;">MISTAKE</span>`;
+        let badgeStyle = isCorrect 
+          ? `background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;` 
+          : `background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;`;
 
-        let feedbackBox = !isCorrect ? `
-          <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 6px; margin-top: 4px; font-size: 11px; color: #991b1b;">
-            <b>Explanation & Feedback:</b> ${explanation}
-          </div>` : '';
+        let feedbackBlock = !isCorrect ? `
+          <tr style="background-color: #fef2f2;">
+            <td colspan="4" style="padding: 8px 12px; font-size: 11px; color: #991b1b; border-bottom: 1px solid #e5e7eb;">
+              <b>💡 Feedback & Explanation:</b> ${explanation}
+            </td>
+          </tr>` : '';
 
         return `
-          <div style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
-            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold;">
-              <span>Q${l.questionId}: ${qText}</span>
-              <span>${badge}</span>
-            </div>
-            <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
-              Student Answer: <b>${l.selectedAnswer}</b> | Correct Answer: <b>${correctOpt}</b>
-            </div>
-            ${feedbackBox}
-          </div>
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 10px; font-weight: bold; font-size: 11px;">Q${l.questionId}</td>
+            <td style="padding: 10px; font-size: 11px; color: #374151;">${qText}</td>
+            <td style="padding: 10px; font-size: 11px; text-align: center;">
+              Student: <b>${l.selectedAnswer}</b><br><span style="color:#6b7280; font-size:10px;">Correct: ${correctOpt}</span>
+            </td>
+            <td style="padding: 10px; font-size: 10px; text-align: center;">
+              <span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; ${badgeStyle}">${l.isCorrect.toUpperCase()}</span>
+            </td>
+          </tr>
+          ${feedbackBlock}
         `;
       }).join('');
 
       return `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #1f2937;">
-          <div style="border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 15px;">
-            <h1 style="font-size: 20px; font-weight: bold; color: #1d4ed8; margin: 0;">Student Personal Feedback Report</h1>
-            <p style="font-size: 12px; color: #6b7280; margin: 2px 0 0 0;">Plickers Assessment Result Sheet</p>
-          </div>
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; color: #111827; background-color: #ffffff;">
           
-          <div style="display: flex; justify-content: space-between; background-color: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
-            <div><b>Student Name:</b> ${sName}</div>
-            <div><b>Total Score:</b> ${correctCount} / ${totalCount} (${pct}%)</div>
+          <!-- Report Header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-b: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+              <h1 style="font-size: 22px; font-weight: 800; color: #1d4ed8; margin: 0;">Student Performance Evaluation Report</h1>
+              <p style="font-size: 12px; color: #4b5563; margin: 4px 0 0 0;">Assessment & Personal Feedback Summary</p>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #6b7280;">
+              Generated: ${new Date().toLocaleDateString()}
+            </div>
           </div>
 
-          <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">Question Analysis:</h3>
-          ${itemsHtml || '<div style="font-size: 12px; color: #9ca3af; font-style: italic;">No answers recorded for this student.</div>'}
+          <!-- Student Overview Cards -->
+          <div style="display: table; width: 100%; margin-bottom: 20px; border-collapse: separate; border-spacing: 10px 0;">
+            <div style="display: table-cell; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+              <span style="font-size: 11px; color: #64748b; font-weight: bold; display: block;">STUDENT NAME</span>
+              <span style="font-size: 16px; font-weight: 800; color: #0f172a;">${sName}</span>
+            </div>
+            <div style="display: table-cell; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px;">
+              <span style="font-size: 11px; color: #166534; font-weight: bold; display: block;">SCORE</span>
+              <span style="font-size: 16px; font-weight: 800; color: #15803d;">${correctCount} / ${totalCount}</span>
+            </div>
+            <div style="display: table-cell; background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px;">
+              <span style="font-size: 11px; color: #1e40af; font-weight: bold; display: block;">ACCURACY</span>
+              <span style="font-size: 16px; font-weight: 800; color: #1d4ed8;">${pct}%</span>
+            </div>
+          </div>
+
+          <!-- Question Details Table -->
+          <h3 style="font-size: 14px; font-weight: 700; color: #1f2937; margin-bottom: 10px; border-bottom: 1px solid #d1d5db; padding-bottom: 4px;">
+            Detailed Question Analysis & Explanations
+          </h3>
+
+          <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 20px;">
+            <thead>
+              <tr style="background-color: #f3f4f6; color: #374151; font-size: 11px;">
+                <th style="padding: 8px 10px; width: 10%;">ID</th>
+                <th style="padding: 8px 10px; width: 55%;">Question</th>
+                <th style="padding: 8px 10px; width: 20%; text-align: center;">Choices</th>
+                <th style="padding: 8px 10px; width: 15%; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsRows || '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #9ca3af; font-style: italic;">No answered questions recorded.</td></tr>'}
+            </tbody>
+          </table>
+
         </div>
       `;
     }
@@ -418,7 +488,7 @@
       let sName = student ? student.name.replace(/\s+/g, '_') : (`Card_${sId}`);
 
       html2pdf().set({
-        margin: 10,
+        margin: 8,
         filename: `Report_${sName}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
@@ -432,7 +502,7 @@
       container.innerHTML = combinedHTML;
 
       html2pdf().set({
-        margin: 10,
+        margin: 8,
         filename: `Class_Full_Reports.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
@@ -563,7 +633,7 @@
         action: 'saveResponse',
         questionId: questionId,
         studentId: studentId,
-        selectedAnswer: 'A' // Default scan payload
+        selectedAnswer: 'A'
       };
 
       fetch(API_URL, {
