@@ -112,30 +112,30 @@
     }
 
     async function startScanner() {
-      if (html5QrCode) await stopScanner();
-      
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      } catch (err) {
-        alert("Camera permission blocked. Please allow camera access in your browser settings.");
-        return;
-      }
+  if (html5QrCode) await stopScanner();
 
-      html5QrCode = new Html5Qrcode("reader");
-      try {
-        let devices = await Html5Qrcode.getCameras();
-        let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
-        
-        await html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: { width: 200, height: 200 } },
-          onScanSuccess,
-          () => {}
-        );
-      } catch (err) {
-        alert("Scanner initialization failed: " + err);
-      }
+  html5QrCode = new Html5Qrcode("reader");
+
+  try {
+    let devices = await Html5Qrcode.getCameras();
+    if (!devices || devices.length === 0) {
+      alert("No camera found on this device.");
+      return;
     }
+
+    // Pick the rear camera sensor directly
+    let cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
+
+    await html5QrCode.start(
+      cameraId,
+      { fps: 10, qrbox: { width: 200, height: 200 } },
+      onScanSuccess,
+      () => {}
+    );
+  } catch (err) {
+    alert("Scanner initialization failed: " + err);
+  }
+}
 
     async function stopScanner() {
       if (html5QrCode) {
