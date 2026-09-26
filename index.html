@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Plickers Web App</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Tailwind CSS & PDF Generator Script -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
   <div class="container mx-auto p-3 max-w-2xl">
@@ -15,10 +17,10 @@
     <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
       <h1 class="text-sm font-bold tracking-wide">Plickers Web App</h1>
       <div class="flex space-x-1 text-xs">
-        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold">Scanner</button>
-        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold">Results</button>
-        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold">Questions</button>
-        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold">Cards</button>
+        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Scanner</button>
+        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Results</button>
+        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Questions</button>
+        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white">Cards</button>
       </div>
     </header>
 
@@ -38,7 +40,7 @@
       </div>
 
       <!-- HIGH VISIBILITY CLASSROOM DISPLAY BOX -->
-      <div id="questionDisplayBox" class="mb-4 p-4 bg-slate-900 border-2 border-blue-500 rounded-xl shadow-lg bg-gray-900 text-white">
+      <div id="questionDisplayBox" class="mb-4 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white">
         <div id="dispQText" class="font-extrabold text-xl md:text-2xl text-yellow-300 mb-4 leading-snug text-center">
           Select a question to display...
         </div>
@@ -55,16 +57,20 @@
         <label class="block text-xs font-semibold text-gray-600 mb-1">Answer Option Being Scanned:</label>
         <div id="optionButtons" class="flex space-x-2">
           <button onclick="setOption('A')" class="opt-btn flex-1 bg-blue-600 text-white py-2 rounded font-bold text-sm">A</button>
-          <button onclick="setOption('B')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">B</button>
-          <button onclick="setOption('C')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">C</button>
-          <button onclick="setOption('D')" class="opt-btn flex-1 bg-gray-200 py-2 rounded font-bold text-sm hover:bg-gray-300">D</button>
+          <button onclick="setOption('B')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">B</button>
+          <button onclick="setOption('C')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">C</button>
+          <button onclick="setOption('D')" class="opt-btn flex-1 bg-gray-200 text-gray-800 py-2 rounded font-bold text-sm hover:bg-gray-300">D</button>
         </div>
       </div>
 
-      <!-- Camera Buttons -->
+      <!-- Camera Control Buttons (Fixed High-Visibility Styling) -->
       <div class="mb-3 flex space-x-2">
-        <button onclick="startScanner()" class="flex-1 bg-emerald-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-emerald-700">Start Camera</button>
-        <button onclick="stopScanner()" class="flex-1 bg-red-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-red-700">Stop Camera</button>
+        <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
+          Start Camera
+        </button>
+        <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 rounded-md font-bold text-xs shadow-md">
+          Stop Camera
+        </button>
       </div>
 
       <div id="reader" class="w-full mb-3 bg-black rounded overflow-hidden" style="min-height: 220px;"></div>
@@ -76,9 +82,15 @@
       </div>
     </div>
 
-    <!-- TAB 2: RESULTS & HISTORY TRACKING -->
+    <!-- TAB 2: RESULTS, CLEAR HISTORY & PDF REPORT GENERATION -->
     <div id="tab-history" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <h2 class="text-md font-bold mb-2 text-gray-800">Class Performance & Record History</h2>
+      <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <h2 class="text-md font-bold text-gray-800">Class Performance & History</h2>
+        <div class="flex space-x-2">
+          <button onclick="downloadClassPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Download All Reports (PDF)</button>
+          <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-xs font-semibold">Clear History</button>
+        </div>
+      </div>
       
       <div id="historyStats" class="grid grid-cols-3 gap-2 mb-4 text-center text-xs">
         <div class="p-2 bg-blue-50 border border-blue-200 rounded">
@@ -100,9 +112,10 @@
           <thead>
             <tr class="bg-gray-100 text-gray-700 border-b">
               <th class="p-2">Card / Student</th>
-              <th class="p-2">Total Answers</th>
+              <th class="p-2">Answers</th>
               <th class="p-2">Correct</th>
               <th class="p-2">Score</th>
+              <th class="p-2 text-right">PDF Report</th>
             </tr>
           </thead>
           <tbody id="studentScoreTable" class="divide-y text-gray-600"></tbody>
@@ -114,20 +127,20 @@
     <div id="tab-bulk" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
       <h2 class="text-md font-bold mb-3 text-gray-800">Question & Folder Management</h2>
       
-      <!-- Folder Name for Import -->
       <div class="mb-3">
         <label class="block text-xs font-semibold text-gray-600 mb-1">Target Folder Name:</label>
-        <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Unit 1 Grammar">
+        <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Grammar Unit 1">
       </div>
 
       <div class="mb-3">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Bulk Format: <code>Q1 | Text | A | B | C | D | Answer</code></label>
-        <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="Q1 | She ___ to school. | go | goes | is go | gone | B"></textarea>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">
+          Bulk Format: <code>ID | Question | A | B | C | D | Correct | Explanation</code>
+        </label>
+        <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="Q1 | She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
       </div>
 
       <button onclick="submitBulk()" class="mb-5 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700">Upload Questions to Folder</button>
 
-      <!-- Delete / Manage Existing Folders -->
       <hr class="my-4">
       <h3 class="text-xs font-bold text-gray-700 mb-2">Existing Folders & Questions</h3>
       <div id="folderManageList" class="space-y-3 text-xs"></div>
@@ -141,6 +154,9 @@
       </div>
       <div id="cardsContainer" class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto p-1"></div>
     </div>
+
+    <!-- HIDDEN CONTAINER FOR PDF GENERATION -->
+    <div id="pdfExportContainer" class="hidden"></div>
 
   </div>
 
@@ -289,7 +305,6 @@
       let acc = logs.length > 0 ? Math.round((correct / logs.length) * 100) : 0;
       document.getElementById('statAccuracy').innerText = acc + '%';
 
-      // Group scores per student
       let stats = {};
       (appData.studentList || []).forEach(s => {
         stats[s.id] = { name: s.name, total: 0, correct: 0 };
@@ -312,8 +327,112 @@
           <td class="p-2">${st.total}</td>
           <td class="p-2 text-green-600 font-bold">${st.correct}</td>
           <td class="p-2 font-semibold">${pct}%</td>
+          <td class="p-2 text-right">
+            <button onclick="downloadStudentPDF('${sId}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">PDF Report</button>
+          </td>
         </tr>`;
       }).join('');
+    }
+
+    function clearHistory() {
+      if (!confirm("Are you sure you want to clear all response history?")) return;
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'clearHistory' })
+      }).then(() => {
+        alert("History cleared!");
+        loadData();
+      });
+    }
+
+    // --- PDF REPORT GENERATION WITH EXPLANATIONS ---
+    function buildStudentReportHTML(sId) {
+      let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
+      let sName = student ? student.name : ("Card #" + sId);
+      
+      let sLogs = (appData.allLogs || []).filter(l => String(l.studentId) === String(sId));
+      let correctCount = sLogs.filter(l => l.isCorrect === 'Correct').length;
+      let totalCount = sLogs.length;
+      let pct = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+      let itemsHtml = sLogs.map(l => {
+        let q = (appData.questions || []).find(item => String(item.id) === String(l.questionId));
+        let qText = q ? q.text : `Question #${l.questionId}`;
+        let correctOpt = q ? q.correct : '-';
+        let explanation = q ? (q.explanation || 'No explanation provided.') : '';
+
+        let isCorrect = l.isCorrect === 'Correct';
+        let badge = isCorrect 
+          ? `<span style="color: #16a34a; font-weight: bold;">CORRECT</span>` 
+          : `<span style="color: #dc2626; font-weight: bold;">MISTAKE</span>`;
+
+        let feedbackBox = !isCorrect ? `
+          <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 6px; margin-top: 4px; font-size: 11px; color: #991b1b;">
+            <b>Explanation & Feedback:</b> ${explanation}
+          </div>` : '';
+
+        return `
+          <div style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
+            <div style="display: flex; justify-between: space-between; font-size: 12px; font-weight: bold;">
+              <span>Q${l.questionId}: ${qText}</span>
+              <span>${badge}</span>
+            </div>
+            <div style="font-size: 11px; color: #4b5563; margin-top: 2px;">
+              Student Answer: <b>${l.selectedAnswer}</b> | Correct Answer: <b>${correctOpt}</b>
+            </div>
+            ${feedbackBox}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #1f2937;">
+          <div style="border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 15px;">
+            <h1 style="font-size: 20px; font-weight: bold; color: #1d4ed8; margin: 0;">Student Personal Feedback Report</h1>
+            <p style="font-size: 12px; color: #6b7280; margin: 2px 0 0 0;">Plickers Assessment Result Sheet</p>
+          </div>
+          
+          <div style="display: flex; justify-between: space-between; background-color: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+            <div><b>Student Name:</b> ${sName}</div>
+            <div><b>Total Score:</b> ${correctCount} / ${totalCount} (${pct}%)</div>
+          </div>
+
+          <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">Question Analysis:</h3>
+          ${itemsHtml || '<div style="font-size: 12px; color: #9ca3af; italic;">No answers recorded for this student.</div>'}
+        </div>
+      `;
+    }
+
+    function downloadStudentPDF(sId) {
+      let container = document.getElementById('pdfExportContainer');
+      container.innerHTML = buildStudentReportHTML(sId);
+      let element = container;
+
+      let student = (appData.studentList || []).find(s => String(s.id) === String(sId));
+      let sName = student ? student.name.replace(/\s+/g, '_') : (`Card_${sId}`);
+
+      html2pdf().set({
+        margin: 10,
+        filename: `Report_${sName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(element).save();
+    }
+
+    function downloadClassPDF() {
+      let container = document.getElementById('pdfExportContainer');
+      let combinedHTML = (appData.studentList || []).map(s => buildStudentReportHTML(s.id) + '<div style="page-break-after: always;"></div>').join('');
+      container.innerHTML = combinedHTML;
+
+      html2pdf().set({
+        margin: 10,
+        filename: `Class_Full_Reports.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(container).save();
     }
 
     function renderFolderManagement() {
@@ -367,10 +486,9 @@
       container.innerHTML = '';
       if (!appData.studentList) return;
       
-      appData.studentList.forEach((s, idx) => {
+      appData.studentList.forEach(s => {
         let cardDiv = document.createElement('div');
         cardDiv.className = 'border p-2 rounded text-center bg-gray-50 flex flex-col items-center shadow-sm';
-        
         cardDiv.innerHTML = `
           <div class="text-xs font-bold text-gray-500 mb-1">Card #${s.id}</div>
           <input type="text" id="stName_${s.id}" value="${s.name}" class="text-center font-bold text-xs p-1 border rounded w-full mb-2 bg-white text-gray-800" />
@@ -403,10 +521,10 @@
       selectedOption = opt;
       document.querySelectorAll('.opt-btn').forEach(b => {
         b.classList.remove('bg-blue-600', 'text-white');
-        b.classList.add('bg-gray-200');
+        b.classList.add('bg-gray-200', 'text-gray-800');
         if (b.innerText === opt) {
           b.classList.add('bg-blue-600', 'text-white');
-          b.classList.remove('bg-gray-200');
+          b.classList.remove('bg-gray-200', 'text-gray-800');
         }
       });
       scannedCache.clear();
@@ -473,7 +591,16 @@
       lines.forEach(line => {
         let parts = line.split('|').map(p => p.trim());
         if (parts.length >= 7) {
-          questionsList.push({ id: parts[0], text: parts[1], a: parts[2], b: parts[3], c: parts[4], d: parts[5], correct: parts[6] });
+          questionsList.push({ 
+            id: parts[0], 
+            text: parts[1], 
+            a: parts[2], 
+            b: parts[3], 
+            c: parts[4], 
+            d: parts[5], 
+            correct: parts[6],
+            explanation: parts[7] || ""
+          });
         }
       });
 
