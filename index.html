@@ -70,7 +70,7 @@
     <div id="tab-scanner" class="mb-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        <!-- LEFT HALF: Confidential Live Student Responses -->
+        <!-- LEFT HALF: Live Student Responses -->
         <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
           <div class="flex justify-between items-center mb-2 border-b pb-2">
             <h3 class="font-bold text-sm text-gray-800">Live Student Responses</h3>
@@ -83,7 +83,7 @@
             🎉 All active students have submitted their answers!
           </div>
 
-          <p class="text-[11px] text-gray-500 mb-2 italic">Student selections are hidden by default to prevent copying during class.</p>
+          <p id="sortNoticeText" class="text-[11px] text-gray-500 mb-2 italic">Showing responses in order of submission time.</p>
           <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[500px]"></ul>
         </div>
 
@@ -311,7 +311,6 @@
     let groupsData = {}; 
     let currentGroupName = "";
     
-    // Default 20 Active / 80 Inactive setup
     let activeCardsState = {};
     for (let i = 1; i <= 100; i++) {
       activeCardsState[String(i)] = (i <= 20);
@@ -332,6 +331,7 @@
     let timerInterval = null;
 
     window.onload = function() { 
+      currentGroupName = localStorage.getItem('plickers_active_group') || "";
       loadData(); 
       setInterval(syncState, 2500); 
     };
@@ -449,9 +449,17 @@
     function getOrderedUniqueStudents() {
       let list = [];
       let studentMap = {};
-      (appData.studentList || []).forEach(s => {
-        studentMap[String(s.id)] = s.name;
-      });
+      
+      let localRoster = JSON.parse(localStorage.getItem('plickers_active_roster') || '[]');
+      if (localRoster && localRoster.length > 0) {
+        localRoster.forEach(s => {
+          studentMap[String(s.id)] = s.name;
+        });
+      } else {
+        (appData.studentList || []).forEach(s => {
+          studentMap[String(s.id)] = s.name;
+        });
+      }
 
       for (let i = 1; i <= 100; i++) {
         let idStr = String(i);
@@ -461,6 +469,12 @@
         });
       }
       return list;
+    }
+
+    function getStudentNameById(sId) {
+      let students = getOrderedUniqueStudents();
+      let match = students.find(s => String(s.id) === String(sId));
+      return match ? match.name : ("Card " + sId);
     }
 
     function initFolderSelection() {
@@ -610,21 +624,39 @@
       renderLogs(appData.logs);
     }
 
+    function getStudentStatsMap() {
+      let allLogs = appData.allLogs || [];
+      let stats = {};
+      
+      getOrderedUniqueStudents().forEach(s => {
+        stats[String(s.id)] = { id: String(s.id), name: s.name, total: 0, correct: 0, scorePct: 0 };
+      });
+
+      allLogs.forEach(l => {
+        let sid = String(l.studentId);
+        if (!stats[sid]) {
+          stats[sid] = { id: sid, name: getStudentNameById(sid), total: 0, correct: 0, scorePct: 0 };
+        }
+        stats[sid].total += 1;
+        if (l.isCorrect === 'Correct') stats[sid].correct += 1;
+      });
+
+      Object.keys(stats).forEach(sid => {
+        let st = stats[sid];
+        st.scorePct = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+      });
+
+      return stats;
+    }
+
     function renderLogs(logs) {
       let logUl = document.getElementById('scanLog');
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
       let banner = document.getElementById('completionBanner');
-
-      // Check if all active students have scanned
       if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
         banner.classList.remove('hidden');
-        
-        // AUTO-STOP CAMERA LOGIC
-        if (isScannerRunning) {
-          stopScanner();
-        }
       } else {
         banner.classList.add('hidden');
       }
@@ -634,27 +666,69 @@
         return;
       }
 
-      logUl.innerHTML = validLogs.map(l => {
-        let isRevealed = revealAll || revealedStudents.has(l.studentId);
+      let statsMap = getStudentStatsMap();
+
+      let displayList = validLogs.map(l => {
+        let sid = String(l.studentId);
+        let currentName = getStudentNameById(sid);
+        let stStats = statsMap[sid] || { total: 0, correct: 0, scorePct: 0 };
+        return {
+          ...l,
+          studentName: currentName,
+          stats: stStats
+        };
+      });
+
+      let noticeText = document.getElementById('sortNoticeText');
+
+      if (revealAll) {
+        noticeText.innerText = "🏆 Automatically ranked by overall class score and correctness.";
+        displayList.sort((a, b) => {
+          let aIsCorrect = a.isCorrect === 'Correct' ? 1 : 0;
+          let bIsCorrect = b.isCorrect === 'Correct' ? 1 : 0;
+          if (bIsCorrect !== aIsCorrect) return bIsCorrect - aIsCorrect;
+          if (b.stats.scorePct !== a.stats.scorePct) return b.stats.scorePct - a.stats.scorePct;
+          if (b.stats.correct !== a.stats.correct) return b.stats.correct - a.stats.correct;
+          return 0;
+        });
+      } else {
+        noticeText.innerText = "⚡ Showing responses in order of quickness (submission time).";
+        displayList.reverse(); 
+      }
+
+      logUl.innerHTML = displayList.map((l, index) => {
+        let sid = String(l.studentId);
+        let isRevealed = revealAll || revealedStudents.has(sid);
         let isCorrect = l.isCorrect === 'Correct';
+        let rankLabel = revealAll ? `<span class="font-extrabold text-blue-700 mr-1.5">#${index + 1}</span>` : '';
 
         if (isRevealed) {
           let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
           let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
+          
           return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
-            <span><b>${l.studentName}</b> selected <b>Option ${l.selectedAnswer}</b></span>
+            <div class="flex items-center">
+              ${rankLabel}
+              <div>
+                <div><b>${l.studentName}</b> selected <b>Option ${l.selectedAnswer}</b></div>
+                <div class="text-[10px] text-gray-500 font-semibold">Overall: ${l.stats.correct}/${l.stats.total} correct (${l.stats.scorePct}%)</div>
+              </div>
+            </div>
             <div class="flex items-center space-x-1.5">
               <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
-              <button onclick="toggleRevealSingle('${l.studentId}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
+              <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
             </div>
           </li>`;
         } else {
           return `<li class="p-2 border rounded flex justify-between items-center bg-blue-50 border-blue-200 text-blue-900">
-            <span><b>${l.studentName}</b> — Response Received 🔒</span>
-            <button onclick="toggleRevealSingle('${l.studentId}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
+            <div>
+              <div><b>${l.studentName}</b> — Response Received 🔒</div>
+              <div class="text-[10px] text-blue-600 font-medium">Overall Score: ${l.stats.scorePct}% (${l.stats.correct}/${l.stats.total})</div>
+            </div>
+            <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
           </li>`;
         }
-      }).reverse().join('');
+      }).join('');
     }
 
     function renderHistoryTab() {
@@ -671,11 +745,15 @@
       });
 
       logs.forEach(l => {
-        if (!statsMap[l.studentId]) {
-          statsMap[l.studentId] = { id: l.studentId, name: l.studentName, total: 0, correct: 0 };
+        let sid = String(l.studentId);
+        let cName = getStudentNameById(sid);
+        if (!statsMap[sid]) {
+          statsMap[sid] = { id: sid, name: cName, total: 0, correct: 0 };
+        } else {
+          statsMap[sid].name = cName; 
         }
-        statsMap[l.studentId].total += 1;
-        if (l.isCorrect === 'Correct') statsMap[l.studentId].correct += 1;
+        statsMap[sid].total += 1;
+        if (l.isCorrect === 'Correct') statsMap[sid].correct += 1;
       });
 
       let sortedStudents = Object.values(statsMap).map(s => {
@@ -807,6 +885,7 @@
         localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
       }
       currentGroupName = name;
+      localStorage.setItem('plickers_active_group', name);
       input.value = '';
       renderGroupsTab();
     }
@@ -814,6 +893,7 @@
     function loadSelectedGroup() {
       let val = document.getElementById('groupSelect').value;
       currentGroupName = val;
+      localStorage.setItem('plickers_active_group', val);
       renderGroupsTab();
 
       if (val && groupsData[val]) {
@@ -828,6 +908,7 @@
       delete groupsData[currentGroupName];
       localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
       currentGroupName = "";
+      localStorage.removeItem('plickers_active_group');
       renderGroupsTab();
     }
 
@@ -921,6 +1002,8 @@
         updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card " + idStr) });
       }
 
+      localStorage.setItem('plickers_active_roster', JSON.stringify(updatedList));
+
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -930,7 +1013,6 @@
       });
     }
 
-    // --- DIGITAL CARDS (SHOWS MAPPED STUDENT NAMES) ---
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -965,7 +1047,6 @@
       renderStudentCards();
     }
 
-    // --- PRINTABLE CARDS (REUSABLE - EXCLUDES STUDENT NAMES) ---
     function printActiveCards() {
       let printContainer = document.getElementById('printArea');
       printContainer.innerHTML = '';
