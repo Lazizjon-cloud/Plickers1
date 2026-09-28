@@ -449,7 +449,11 @@
           appData = data;
           initFolderSelection();
           renderQuestionDropdown();
-          if (data.activeQuestion) updateActiveQuestionUI(data.activeQuestion);
+          let filtered = getFilteredQuestions();
+          if (filtered.length > 0) {
+            let activeQExists = filtered.find(q => String(q.id) === String(data.activeQuestion));
+            updateActiveQuestionUI(activeQExists ? data.activeQuestion : filtered[0].id);
+          }
           renderLogs(data.logs);
         }).catch(err => console.error("Database connection error: ", err));
     }
@@ -462,9 +466,6 @@
           appData = data;
           syncFolderSelectDropdown();
           renderQuestionDropdown();
-          if (data.activeQuestion && data.activeQuestion !== currentActiveQId) {
-            updateActiveQuestionUI(data.activeQuestion);
-          }
           renderLogs(data.logs);
         }).catch(err => console.error("Sync error: ", err));
     }
@@ -533,6 +534,12 @@
       selectedFolder = select.value;
       customQuestionOrder = null;
       renderQuestionDropdown();
+      let questions = getFilteredQuestions();
+      if (questions.length > 0) {
+        updateActiveQuestionUI(questions[0].id);
+      } else {
+        updateActiveQuestionUI("");
+      }
     }
 
     function shuffleQuestions() {
@@ -547,6 +554,9 @@
 
       customQuestionOrder = shuffled;
       renderQuestionDropdown();
+      if (shuffled.length > 0) {
+        updateActiveQuestionUI(shuffled[0].id);
+      }
     }
 
     function getFilteredQuestions() {
@@ -605,7 +615,8 @@
       currentActiveQId = qId;
       document.getElementById('questionSelect').value = qId;
 
-      let q = (appData.questions || []).find(item => String(item.id) === String(qId));
+      let filtered = getFilteredQuestions();
+      let q = filtered.find(item => String(item.id) === String(qId));
       if (q) {
         document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
         
@@ -634,6 +645,13 @@
             document.getElementById('explanationBox').classList.remove('hidden');
           }
         }
+      } else {
+        document.getElementById('dispQText').innerText = "Select a question to display...";
+        document.getElementById('dispOptA').innerHTML = "A: -";
+        document.getElementById('dispOptB').innerHTML = "B: -";
+        document.getElementById('dispOptC').innerHTML = "C: -";
+        document.getElementById('dispOptD').innerHTML = "D: -";
+        document.getElementById('explanationBox').classList.add('hidden');
       }
     }
 
