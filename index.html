@@ -408,16 +408,15 @@
       setInterval(syncState, 2500); 
     };
 
-    // HIGH LOUD BEEP FOR SUCCESSFUL SCANNING
     function playBeepSound() {
       if (!audioEnabled) return;
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let osc = audioCtx.createOscillator();
         let gain = audioCtx.createGain();
-        osc.type = "square"; // High intensity square wave
-        osc.frequency.setValueAtTime(1400, audioCtx.currentTime); // High pitch pitch
-        gain.gain.setValueAtTime(0.8, audioCtx.currentTime); // High volume level
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -489,7 +488,7 @@
         let idStr = String(i);
         list.push({
           id: idStr,
-          name: studentMap[idStr] || ("Card " + idStr)
+          name: studentMap[idStr] || ("Card #" + idStr)
         });
       }
       return list;
@@ -498,7 +497,18 @@
     function getStudentNameById(sId) {
       let students = getOrderedUniqueStudents();
       let match = students.find(s => String(s.id) === String(sId));
-      return match ? match.name : ("Card " + sId);
+      return match ? match.name : ("Card #" + sId);
+    }
+
+    function getActiveFolderQuestion(qId) {
+      let filtered = getFilteredQuestions();
+      return filtered.find(q => String(q.id) === String(qId));
+    }
+
+    function isAnswerCorrect(qId, selectedAnswer) {
+      let q = getActiveFolderQuestion(qId);
+      if (!q || !q.correct) return false;
+      return String(q.correct).trim().toUpperCase() === String(selectedAnswer).trim().toUpperCase();
     }
 
     function initFolderSelection() {
@@ -596,11 +606,10 @@
       isUserSelecting = true;
       revealCorrect = false;
       
-      // AUTOMATICALLY HIDE RESPONSES ON QUESTION MOVE
       revealAll = false;
       document.getElementById('btnRevealAll').innerText = "👁️ Reveal Responses";
 
-      scannedCache.clear(); // Reset local response cache for new question
+      scannedCache.clear();
       document.getElementById('explanationBox').classList.add('hidden');
       updateActiveQuestionUI(qId);
 
@@ -615,8 +624,7 @@
       currentActiveQId = qId;
       document.getElementById('questionSelect').value = qId;
 
-      let filtered = getFilteredQuestions();
-      let q = filtered.find(item => String(item.id) === String(qId));
+      let q = getActiveFolderQuestion(qId);
       if (q) {
         document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
         
@@ -630,7 +638,6 @@
         optC.innerHTML = `<b>C:</b> ${q.c || '-'}`;
         optD.innerHTML = `<b>D:</b> ${q.d || '-'}`;
 
-        // Reset highlight styles
         [optA, optB, optC, optD].forEach(el => el.classList.remove('ring-4', 'ring-yellow-400', 'scale-[1.02]'));
 
         if (revealCorrect) {
@@ -690,7 +697,7 @@
           stats[sid] = { id: sid, name: getStudentNameById(sid), total: 0, correct: 0, scorePct: 0 };
         }
         stats[sid].total += 1;
-        if (l.isCorrect === 'Correct') stats[sid].correct += 1;
+        if (isAnswerCorrect(l.questionId, l.selectedAnswer)) stats[sid].correct += 1;
       });
 
       Object.keys(stats).forEach(sid => {
@@ -706,12 +713,10 @@
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
 
-      // Populate local scan cache from server state
       validLogs.forEach(l => {
         scannedCache.set(String(l.studentId), l.selectedAnswer);
       });
 
-      // UPDATE PARALLEL LIST OF ACTIVE CARDS NOT SCANNED YET
       let scannedStudentIds = new Set(validLogs.map(l => String(l.studentId)));
       let pendingCards = activeStudents.filter(s => !scannedStudentIds.has(String(s.id)));
       
@@ -726,10 +731,8 @@
         ).join('');
       }
 
-      // Update Response Count Badge
       document.getElementById('responseCountBadge').innerText = `${validLogs.length}/${activeStudents.length}`;
 
-      // Update Answer Distribution
       let counts = { A: 0, B: 0, C: 0, D: 0 };
       validLogs.forEach(l => {
         let ans = (l.selectedAnswer || '').toUpperCase();
@@ -768,17 +771,19 @@
         let sid = String(l.studentId);
         let currentName = getStudentNameById(sid);
         let stStats = statsMap[sid] || { total: 0, correct: 0, scorePct: 0 };
+        let correctFlag = isAnswerCorrect(l.questionId, l.selectedAnswer);
         return {
           ...l,
           studentName: currentName,
-          stats: stStats
+          stats: stStats,
+          evaluatedCorrectness: correctFlag ? 'Correct' : 'Incorrect'
         };
       });
 
       if (revealAll) {
         displayList.sort((a, b) => {
-          let aIsCorrect = a.isCorrect === 'Correct' ? 1 : 0;
-          let bIsCorrect = b.isCorrect === 'Correct' ? 1 : 0;
+          let aIsCorrect = a.evaluatedCorrectness === 'Correct' ? 1 : 0;
+          let bIsCorrect = b.evaluatedCorrectness === 'Correct' ? 1 : 0;
           if (bIsCorrect !== aIsCorrect) return bIsCorrect - aIsCorrect;
           if (b.stats.scorePct !== a.stats.scorePct) return b.stats.scorePct - a.stats.scorePct;
           if (b.stats.correct !== a.stats.correct) return b.stats.correct - a.stats.correct;
@@ -791,7 +796,7 @@
       logUl.innerHTML = displayList.map((l, index) => {
         let sid = String(l.studentId);
         let isRevealed = revealAll || revealedStudents.has(sid);
-        let isCorrect = l.isCorrect === 'Correct';
+        let isCorrect = l.evaluatedCorrectness === 'Correct';
         let rankLabel = revealAll ? `<span class="font-extrabold text-blue-700 mr-1.5">#${index + 1}</span>` : '';
 
         if (isRevealed) {
@@ -802,19 +807,19 @@
             <div class="flex items-center">
               ${rankLabel}
               <div>
-                <div><b>${l.studentName}</b> selected <b>Option ${l.selectedAnswer}</b></div>
+                <div><b>#${sid}</b> (${l.studentName}) selected <b>Option ${l.selectedAnswer}</b></div>
                 <div class="text-[10px] text-gray-500 font-semibold">Overall Score: ${l.stats.correct}/${l.stats.total} correct (${l.stats.scorePct}%)</div>
               </div>
             </div>
             <div class="flex items-center space-x-1.5">
-              <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.evaluatedCorrectness}</span>
               <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
             </div>
           </li>`;
         } else {
           return `<li class="p-2 border rounded flex justify-between items-center bg-blue-50 border-blue-200 text-blue-900">
             <div>
-              <div><b>${l.studentName}</b> — Response Received 🔒</div>
+              <div><b>#${sid}</b> (${l.studentName}) — Response Received 🔒</div>
               <div class="text-[10px] text-blue-500 italic font-medium">🔒 Score Hidden</div>
             </div>
             <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
@@ -826,7 +831,7 @@
     function renderHistoryTab() {
       let logs = appData.allLogs || [];
       document.getElementById('statTotalScans').innerText = logs.length;
-      let correct = logs.filter(l => l.isCorrect === 'Correct').length;
+      let correct = logs.filter(l => isAnswerCorrect(l.questionId, l.selectedAnswer)).length;
       document.getElementById('statCorrectScans').innerText = correct;
       let acc = logs.length > 0 ? Math.round((correct / logs.length) * 100) : 0;
       document.getElementById('statAccuracy').innerText = acc + '%';
@@ -845,7 +850,7 @@
           statsMap[sid].name = cName; 
         }
         statsMap[sid].total += 1;
-        if (l.isCorrect === 'Correct') statsMap[sid].correct += 1;
+        if (isAnswerCorrect(l.questionId, l.selectedAnswer)) statsMap[sid].correct += 1;
       });
 
       let sortedStudents = Object.values(statsMap).map(s => {
@@ -885,11 +890,9 @@
         </tr>`;
       }).join('');
 
-      // RENDER EDITABLE LOGS TABLE
       renderEditableLogsTable();
     }
 
-    // EDITABLE RESULTS FEATURE
     function renderEditableLogsTable() {
       let tbody = document.getElementById('editableLogsTable');
       let logs = appData.allLogs || [];
@@ -902,11 +905,11 @@
       tbody.innerHTML = logs.map((l, index) => {
         let sid = String(l.studentId);
         let name = getStudentNameById(sid);
-        let isCorrect = l.isCorrect === 'Correct';
+        let isCorrect = isAnswerCorrect(l.questionId, l.selectedAnswer);
 
         return `<tr class="border-b">
           <td class="p-2 font-bold">Q#${l.questionId}</td>
-          <td class="p-2">${name}</td>
+          <td class="p-2">Card #${sid} (${name})</td>
           <td class="p-2 font-bold">
             <select onchange="updateLogResponse(${index}, this.value)" class="p-1 border rounded text-xs bg-white">
               <option value="A" ${l.selectedAnswer === 'A' ? 'selected' : ''}>A</option>
@@ -917,7 +920,7 @@
           </td>
           <td class="p-2">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-              ${l.isCorrect}
+              ${isCorrect ? 'Correct' : 'Incorrect'}
             </span>
           </td>
           <td class="p-2">
@@ -964,22 +967,18 @@
       let logs = appData.allLogs || [];
       if (logs.length === 0) return alert("No history data to export.");
 
-      let qMap = {};
-      (appData.questions || []).forEach(q => {
-        qMap[String(q.id)] = q;
-      });
-
       let csvContent = "data:text/csv;charset=utf-8,Folder,Question ID,Question Text,Student ID,Student Name,Selected Answer,Correct Answer,Is Correct,Explanation\n";
       
       logs.forEach(l => {
-        let q = qMap[String(l.questionId)] || {};
-        let folder = (q.folder || "General").replace(/"/g, '""');
+        let q = getActiveFolderQuestion(l.questionId) || {};
+        let folder = (q.folder || selectedFolder || "General").replace(/"/g, '""');
         let qText = (q.text || "").replace(/"/g, '""');
         let sName = getStudentNameById(l.studentId).replace(/"/g, '""');
         let correctAns = q.correct || "";
+        let isCorrect = isAnswerCorrect(l.questionId, l.selectedAnswer) ? "Correct" : "Incorrect";
         let explanation = (q.explanation || "").replace(/"/g, '""');
 
-        csvContent += `"${folder}",${l.questionId},"${qText}",${l.studentId},"${sName}",${l.selectedAnswer},${correctAns},${l.isCorrect},"${explanation}"\n`;
+        csvContent += `"${folder}",${l.questionId},"${qText}",${l.studentId},"${sName}",${l.selectedAnswer},${correctAns},${isCorrect},"${explanation}"\n`;
       });
 
       let encodedUri = encodeURI(csvContent);
@@ -1213,7 +1212,7 @@
 
       for (let i = 1; i <= 100; i++) {
         let idStr = String(i);
-        updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card " + idStr) });
+        updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card #" + idStr) });
       }
 
       localStorage.setItem('plickers_active_roster', JSON.stringify(updatedList));
@@ -1415,12 +1414,10 @@
       let questionId = document.getElementById('questionSelect').value;
       if (!questionId) return;
 
-      // OVERWRITE PREVENT CONTROL: Strict check to block any re-scans for already scanned students
       if (scannedCache.has(studentId)) {
-        return; // DISALLOW OVERWRITING
+        return;
       }
 
-      // Compute Orientation Angle using Top-Left and Top-Right Corners
       const p0 = code.location.topLeftCorner;
       const p1 = code.location.topRightCorner;
       const dx = p1.x - p0.x;
@@ -1438,7 +1435,6 @@
         selectedAnswer = "B";
       }
 
-      // Record response in cache
       scannedCache.set(studentId, selectedAnswer);
 
       playBeepSound();
