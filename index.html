@@ -449,7 +449,11 @@
           appData = data;
           initFolderSelection();
           renderQuestionDropdown();
-          if (data.activeQuestion) updateActiveQuestionUI(data.activeQuestion);
+          
+          let targetQId = data.activeQuestion || (document.getElementById('questionSelect').value);
+          if (targetQId) {
+            updateActiveQuestionUI(targetQId);
+          }
           renderLogs(data.logs);
         }).catch(err => console.error("Database connection error: ", err));
     }
@@ -533,6 +537,11 @@
       selectedFolder = select.value;
       customQuestionOrder = null;
       renderQuestionDropdown();
+      
+      let qSelect = document.getElementById('questionSelect');
+      if (qSelect.value) {
+        onQuestionSelectChange();
+      }
     }
 
     function shuffleQuestions() {
@@ -547,6 +556,9 @@
 
       customQuestionOrder = shuffled;
       renderQuestionDropdown();
+      if (document.getElementById('questionSelect').value) {
+        onQuestionSelectChange();
+      }
     }
 
     function getFilteredQuestions() {
@@ -576,6 +588,8 @@
 
       if (currentVal && filteredQuestions.some(q => String(q.id) === String(currentVal))) {
         qSelect.value = currentVal;
+      } else if (filteredQuestions.length > 0) {
+        qSelect.value = filteredQuestions[0].id;
       }
     }
 
@@ -603,9 +617,16 @@
 
     function updateActiveQuestionUI(qId) {
       currentActiveQId = qId;
-      document.getElementById('questionSelect').value = qId;
+      let qSelect = document.getElementById('questionSelect');
+      if (qSelect.value !== String(qId)) {
+        qSelect.value = qId;
+      }
 
-      let q = (appData.questions || []).find(item => String(item.id) === String(qId));
+      // Filter by current selected folder first to prevent selecting wrong question in another folder with same ID
+      let folderQuestions = getFilteredQuestions();
+      let q = folderQuestions.find(item => String(item.id) === String(qId)) || 
+              (appData.questions || []).find(item => String(item.id) === String(qId));
+
       if (q) {
         document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
         
