@@ -447,6 +447,9 @@
         .then(res => res.json())
         .then(data => {
           appData = data;
+          if (data.activeFolder) {
+            selectedFolder = data.activeFolder;
+          }
           initFolderSelection();
           renderQuestionDropdown();
           
@@ -464,6 +467,10 @@
         .then(res => res.json())
         .then(data => {
           appData = data;
+          if (data.activeFolder && data.activeFolder !== selectedFolder) {
+            selectedFolder = data.activeFolder;
+            customQuestionOrder = null;
+          }
           syncFolderSelectDropdown();
           renderQuestionDropdown();
           if (data.activeQuestion && data.activeQuestion !== currentActiveQId) {
@@ -515,7 +522,7 @@
     function syncFolderSelectDropdown() {
       let select = document.getElementById('singleFolderSelect');
       let folders = appData.folders || [];
-      let currentVal = select.value || selectedFolder;
+      let currentVal = selectedFolder || select.value;
 
       select.innerHTML = '<option value="">-- Select Folder --</option>';
       folders.forEach(f => {
@@ -611,7 +618,7 @@
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'setActiveQuestion', questionId: qId })
+        body: JSON.stringify({ action: 'setActiveQuestion', questionId: qId, folderName: selectedFolder })
       }).finally(() => { isUserSelecting = false; });
     }
 
@@ -622,10 +629,16 @@
         qSelect.value = qId;
       }
 
-      // Filter by current selected folder first to prevent selecting wrong question in another folder with same ID
-      let folderQuestions = getFilteredQuestions();
-      let q = folderQuestions.find(item => String(item.id) === String(qId)) || 
-              (appData.questions || []).find(item => String(item.id) === String(qId));
+      // FIX: Strictly match both folder AND question ID to prevent showing questions from other folders with the same ID number
+      let q = (appData.questions || []).find(item => 
+        String(item.id) === String(qId) && (item.folder || "General") === selectedFolder
+      );
+
+      // Fallback to searching just within current filtered folder array if exact match is missing
+      if (!q) {
+        let folderQuestions = getFilteredQuestions();
+        q = folderQuestions.find(item => String(item.id) === String(qId));
+      }
 
       if (q) {
         document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
