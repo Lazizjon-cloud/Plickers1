@@ -629,7 +629,7 @@
         qSelect.value = qId;
       }
 
-      // FIX: Strictly match both folder AND question ID to prevent showing questions from other folders with the same ID number
+      // Strictly match both folder AND question ID to prevent showing questions from other folders with the same ID number
       let q = (appData.questions || []).find(item => 
         String(item.id) === String(qId) && (item.folder || "General") === selectedFolder
       );
@@ -1521,6 +1521,227 @@
         document.getElementById('bulkInput').value = '';
         switchTab('scanner');
         loadData();
+      });
+    }
+  </script>
+
+  <!-- GOOGLE APPS SCRIPT BACKEND CODE (REFERENCE / DEPLOYMENT) -->
+  <script id="google-apps-script-code" type="text/plain">
+    /**
+     * Paste this script into your Google Apps Script project attached to your Google Sheet.
+     * Ensure sheet tabs exist or will be auto-created: 'Questions', 'Responses', 'State', 'Roster'.
+     */
+
+    function doGet(e) {
+      var data = getData();
+      return ContentService.createTextOutput(JSON.stringify(data))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    function doPost(e) {
+      try {
+        var postData = JSON.parse(e.postData.contents);
+        var action = postData.action;
+
+        if (action === 'setActiveQuestion') {
+          setActiveQuestion(postData.questionId, postData.folderName);
+        } else if (action === 'saveResponse') {
+          saveResponse(postData.questionId, postData.studentId, postData.selectedAnswer);
+        } else if (action === 'addBulkQuestions') {
+          addBulkQuestions(postData.folderName, postData.questionsList);
+        } else if (action === 'deleteQuestion') {
+          deleteQuestion(postData.questionId);
+        } else if (action === 'deleteFolder') {
+          deleteFolder(postData.folderName);
+        } else if (action === 'deleteResponse') {
+          deleteResponse(postData.questionId, postData.studentId);
+        } else if (action === 'clearHistory') {
+          clearHistory();
+        } else if (action === 'saveStudentNames') {
+          saveStudentNames(postData.studentList);
+        }
+
+        var data = getData();
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", data: data }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (err) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    function getSheet(name) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheet = ss.getSheetByName(name);
+      if (!sheet) {
+        sheet = ss.insertSheet(name);
+      }
+      return sheet;
+    }
+
+    function getData() {
+      var qSheet = getSheet('Questions');
+      var rSheet = getSheet('Responses');
+      var sSheet = getSheet('State');
+      var rosSheet = getSheet('Roster');
+
+      var qData = qSheet.getDataRange().getValues();
+      var questions = [];
+      var foldersSet = {};
+
+      for (var i = 1; i < qData.length; i++) {
+        if (qData[i][0]) {
+          var folder = qData[i][7] || "General";
+          foldersSet[folder] = true;
+          questions.push({
+            id: String(qData[i][0]),
+            text: qData[i][1],
+            a: qData[i][2],
+            b: qData[i][3],
+            c: qData[i][4],
+            d: qData[i][5],
+            correct: String(qData[i][6]).toUpperCase(),
+            folder: folder,
+            explanation: qData[i][8] || ""
+          });
+        }
+      }
+
+      var activeQ = sSheet.getRange("A1").getValue() || "";
+      var activeFolder = sSheet.getRange("B1").getValue() || "";
+
+      var respData = rSheet.getDataRange().getValues();
+      var logs = [];
+      var allLogs = [];
+
+      for (var j = 1; j < respData.length; j++) {
+        if (respData[j][0]) {
+          var qId = String(respData[j][0]);
+          var sId = String(respData[j][1]);
+          var ans = String(respData[j][2]).toUpperCase();
+          
+          var qObj = questions.find(function(q) { return q.id === qId && (q.folder || "General") === activeFolder; });
+          if (!qObj) {
+            qObj = questions.find(function(q) { return q.id === qId; });
+          }
+          
+          var isCorrect = (qObj && qObj.correct === ans) ? "Correct" : "Incorrect";
+
+          var entry = {
+            questionId: qId,
+            studentId: sId,
+            selectedAnswer: ans,
+            isCorrect: isCorrect
+          };
+
+          allLogs.push(entry);
+          if (qId === String(activeQ)) {
+            logs.push(entry);
+          }
+        }
+      }
+
+      var rosData = rosSheet.getDataRange().getValues();
+      var studentList = [];
+      for (var k = 1; k < rosData.length; k++) {
+        if (rosData[k][0]) {
+          studentList.push({
+            id: String(rosData[k][0]),
+            name: rosData[k][1]
+          });
+        }
+      }
+
+      return {
+        questions: questions,
+        folders: Object.keys(foldersSet),
+        activeQuestion: String(activeQ),
+        activeFolder: activeFolder,
+        logs: logs,
+        allLogs: allLogs,
+        studentList: studentList
+      };
+    }
+
+    function setActiveQuestion(qId, folderName) {
+      var sSheet = getSheet('State');
+      sSheet.getRange("A1").setValue(qId);
+      if (folderName) {
+        sSheet.getRange("B1").setValue(folderName);
+      }
+    }
+
+    function saveResponse(qId, studentId, selectedAnswer) {
+      var rSheet = getSheet('Responses');
+      var data = rSheet.getDataRange().getValues();
+      var foundIndex = -1;
+
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(qId) && String(data[i][1]) === String(studentId)) {
+          foundIndex = i + 1;
+          break;
+        }
+      }
+
+      if (foundIndex > 0) {
+        rSheet.getRange(foundIndex, 3).setValue(selectedAnswer);
+      } else {
+        rSheet.appendRow([qId, studentId, selectedAnswer, new Date()]);
+      }
+    }
+
+    function addBulkQuestions(folderName, questionsList) {
+      var qSheet = getSheet('Questions');
+      if (qSheet.getLastRow() === 0) {
+        qSheet.appendRow(["ID", "Text", "A", "B", "C", "D", "Correct", "Folder", "Explanation"]);
+      }
+      questionsList.forEach(function(q) {
+        qSheet.appendRow([q.id, q.text, q.a, q.b, q.c, q.d, q.correct, folderName, q.explanation]);
+      });
+    }
+
+    function deleteQuestion(qId) {
+      var qSheet = getSheet('Questions');
+      var data = qSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][0]) === String(qId)) {
+          qSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function deleteFolder(folderName) {
+      var qSheet = getSheet('Questions');
+      var data = qSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][7] || "General") === folderName) {
+          qSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function deleteResponse(qId, studentId) {
+      var rSheet = getSheet('Responses');
+      var data = rSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][0]) === String(qId) && String(data[i][1]) === String(studentId)) {
+          rSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function clearHistory() {
+      var rSheet = getSheet('Responses');
+      rSheet.clear();
+      rSheet.appendRow(["QuestionID", "StudentID", "SelectedAnswer", "Timestamp"]);
+    }
+
+    function saveStudentNames(studentList) {
+      var rosSheet = getSheet('Roster');
+      rosSheet.clear();
+      rosSheet.appendRow(["CardID", "StudentName"]);
+      studentList.forEach(function(s) {
+        rosSheet.appendRow([s.id, s.name]);
       });
     }
   </script>
