@@ -1,248 +1,2014 @@
-/**
- * Google Apps Script Backend for Plickers Web App.
- * Attach this script to your Google Spreadsheet (Extensions > Apps Script).
- * Deploy as Web App: Execute as "Me", Who has access: "Anyone".
- */
-
-function doGet(e) {
-  var data = getData();
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  try {
-    var postData = JSON.parse(e.postData.contents);
-    var action = postData.action;
-
-    if (action === 'setActiveQuestion') {
-      setActiveQuestion(postData.questionId, postData.folderName);
-    } else if (action === 'saveResponse') {
-      saveResponse(postData.questionId, postData.studentId, postData.selectedAnswer, postData.folderName);
-    } else if (action === 'addBulkQuestions') {
-      addBulkQuestions(postData.folderName, postData.questionsList);
-    } else if (action === 'deleteQuestion') {
-      deleteQuestion(postData.questionId, postData.folderName);
-    } else if (action === 'deleteFolder') {
-      deleteFolder(postData.folderName);
-    } else if (action === 'deleteResponse') {
-      deleteResponse(postData.questionId, postData.studentId, postData.folderName);
-    } else if (action === 'resetQuestionResponses') {
-      resetQuestionResponses(postData.questionId, postData.folderName);
-    } else if (action === 'clearHistory') {
-      clearHistory();
-    } else if (action === 'saveStudentNames') {
-      saveStudentNames(postData.studentList);
-    }
-
-    var data = getData();
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", data: data }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function getSheet(name) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-  }
-  return sheet;
-}
-
-function getData() {
-  var qSheet = getSheet('Questions');
-  var rSheet = getSheet('Responses');
-  var sSheet = getSheet('State');
-  var rosSheet = getSheet('Roster');
-
-  var qData = qSheet.getDataRange().getValues();
-  var questions = [];
-  var foldersSet = {};
-
-  for (var i = 1; i < qData.length; i++) {
-    if (qData[i][0]) {
-      var folder = qData[i][7] || "General";
-      foldersSet[folder] = true;
-      questions.push({
-        id: String(qData[i][0]),
-        text: qData[i][1],
-        a: qData[i][2],
-        b: qData[i][3],
-        c: qData[i][4],
-        d: qData[i][5],
-        correct: String(qData[i][6]).toUpperCase(),
-        folder: folder,
-        explanation: qData[i][8] || ""
-      });
-    }
-  }
-
-  var activeQ = sSheet.getRange("A1").getValue() || "";
-  var activeFolder = sSheet.getRange("B1").getValue() || "";
-
-  var respData = rSheet.getDataRange().getValues();
-  var logs = [];
-  var allLogs = [];
-
-  for (var j = 1; j < respData.length; j++) {
-    if (respData[j][0]) {
-      var qId = String(respData[j][0]);
-      var sId = String(respData[j][1]);
-      var ans = String(respData[j][2]).toUpperCase();
-      var respFolder = respData[j][4] ? String(respData[j][4]) : "";
-      
-      var qObj = questions.find(function(q) { 
-        return q.id === qId && (respFolder ? q.folder === respFolder : (!activeFolder || q.folder === activeFolder)); 
-      });
-      if (!qObj) {
-        qObj = questions.find(function(q) { return q.id === qId; });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plickers Web App - Pro Edition</title>
+  <!-- Tailwind CSS & QR Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <style>
+    /* PRINT STYLES: 1 Card per Page, Large QR with ABCD Margins, NO NAMES */
+    @media print {
+      body * {
+        visibility: hidden;
       }
-      
-      var isCorrect = (qObj && qObj.correct === ans) ? "Correct" : "Incorrect";
+      #printArea, #printArea * {
+        visibility: visible;
+      }
+      #printArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+      .print-card-page {
+        page-break-after: always;
+        break-after: page;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800">
+  <div class="container mx-auto p-3 max-w-6xl no-print">
+    
+    <!-- TOP NAVIGATION -->
+    <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
+      <div class="flex items-center space-x-2">
+        <h1 class="text-base font-extrabold tracking-wide">Plickers Web App</h1>
+        <span class="text-[10px] bg-blue-800 text-blue-200 px-2 py-0.5 rounded-full font-semibold">Pro Edition</span>
+      </div>
 
-      var entry = {
-        questionId: qId,
-        studentId: sId,
-        selectedAnswer: ans,
-        isCorrect: isCorrect,
-        folder: respFolder
+      <!-- NAV BUTTONS -->
+      <div class="flex space-x-1 text-xs">
+        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Scanner</button>
+        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Results & Reports</button>
+        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Questions</button>
+        <button onclick="switchTab('groups')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Groups</button>
+        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Cards</button>
+      </div>
+    </header>
+
+    <!-- TAB 1: SCANNER & PROJECTOR DISPLAY -->
+    <div id="tab-scanner" class="mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- LEFT HALF: Live Student Responses & Dynamic Breakdown -->
+        <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
+          <div class="flex justify-between items-center mb-2 border-b pb-2 flex-wrap gap-1">
+            <h3 class="font-bold text-sm text-gray-800 flex items-center gap-1.5">
+              <span>Live Responses</span>
+              <span id="responseCountBadge" class="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0/0</span>
+            </h3>
+            <div class="flex flex-wrap gap-1">
+              <button onclick="toggleRevealCorrect()" id="btnRevealCorrect" class="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold px-2 py-1 rounded">
+                💡 Reveal Correct Answer
+              </button>
+              <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-[10px] bg-gray-200 hover:bg-gray-300 font-semibold px-2 py-1 rounded text-gray-700">
+                👁️ Reveal Responses
+              </button>
+              <button onclick="toggleRevealDistribution()" id="btnToggleDist" class="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded" title="Toggle distribution chart visibility independently">
+                📊 Distribution: Auto
+              </button>
+              <button onclick="resetCurrentQuestionResponses()" class="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1 rounded" title="Clear scanned responses for this question only">
+                🔄 Reset Q
+              </button>
+            </div>
+          </div>
+          
+          <div id="completionBanner" class="hidden mb-2 p-2 bg-emerald-100 border border-emerald-400 text-emerald-800 font-bold text-xs rounded text-center animate-bounce">
+            🎉 All active students have submitted their answers!
+          </div>
+
+          <!-- RESPONSE DISTRIBUTION MATRIX (HIDDEN BY DEFAULT UNTIL REVEALED TO PREVENT HINTS) -->
+          <div class="mb-3 p-2 bg-gray-50 border rounded-lg">
+            <div class="text-[11px] font-bold text-gray-600 mb-1.5 flex justify-between items-center">
+              <div class="flex items-center gap-1">
+                <span>Answer Distribution</span>
+                <span id="distStatusBadge" class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-bold">🔒 Hidden</span>
+              </div>
+              <span id="totalRespondedPct" class="text-blue-600 font-extrabold">0% Responded</span>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-bold mb-1.5">
+              <div class="p-1.5 bg-blue-50 border border-blue-200 rounded">
+                <span class="text-blue-700">A: </span><span id="distCountA">?</span>
+              </div>
+              <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded">
+                <span class="text-emerald-700">B: </span><span id="distCountB">?</span>
+              </div>
+              <div class="p-1.5 bg-amber-50 border border-amber-200 rounded">
+                <span class="text-amber-700">C: </span><span id="distCountC">?</span>
+              </div>
+              <div class="p-1.5 bg-rose-50 border border-rose-200 rounded">
+                <span class="text-rose-700">D: </span><span id="distCountD">?</span>
+              </div>
+            </div>
+            
+            <!-- Progress Bar: When hidden, shows neutral total participation bar; when revealed, shows colored distribution breakdown -->
+            <div class="w-full bg-gray-200 rounded-full h-2 flex overflow-hidden">
+              <div id="barHiddenTotal" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+              <div id="barA" class="bg-blue-600 h-full transition-all duration-300" style="width: 0%"></div>
+              <div id="barB" class="bg-emerald-600 h-full transition-all duration-300" style="width: 0%"></div>
+              <div id="barC" class="bg-amber-500 h-full transition-all duration-300" style="width: 0%"></div>
+              <div id="barD" class="bg-rose-600 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- PARALLEL LIST: CARDS PENDING SCAN -->
+          <div class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="text-[11px] font-bold text-amber-800 mb-1">
+              ⏳ Pending Active Cards (<span id="pendingCount">0</span>):
+            </div>
+            <div id="pendingCardsList" class="text-xs text-amber-900 font-mono font-bold flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[350px]"></ul>
+        </div>
+
+        <!-- RIGHT HALF: Question Selectors, Classroom Display & Camera -->
+        <div class="bg-white p-4 rounded-lg shadow-md border order-1 md:order-2">
+          
+          <!-- SINGLE FOLDER & QUESTION CONTROLS -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Select Folder:</label>
+              <select id="singleFolderSelect" onchange="onFolderSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium">
+                <option value="">-- Select Folder --</option>
+              </select>
+            </div>
+            
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-xs font-semibold text-gray-600">Select Question:</label>
+                <button onclick="shuffleQuestions()" class="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                  🔀 Shuffle Order
+                </button>
+              </div>
+              <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+            </div>
+          </div>
+
+          <!-- CLASSROOM DISPLAY BOX -->
+          <div id="questionDisplayBox" class="mb-3 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white">
+            <div id="dispQText" class="font-extrabold text-lg md:text-xl text-yellow-300 mb-3 leading-snug text-center">
+              Select a question to display...
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-bold">
+              <div id="dispOptA" class="p-2.5 bg-blue-700 rounded-lg text-white shadow transition-all">A: -</div>
+              <div id="dispOptB" class="p-2.5 bg-emerald-700 rounded-lg text-white shadow transition-all">B: -</div>
+              <div id="dispOptC" class="p-2.5 bg-amber-600 rounded-lg text-white shadow transition-all">C: -</div>
+              <div id="dispOptD" class="p-2.5 bg-rose-700 rounded-lg text-white shadow transition-all">D: -</div>
+            </div>
+            <div id="explanationBox" class="hidden mt-3 p-2 bg-yellow-900/60 border border-yellow-500 rounded text-xs text-yellow-200 leading-normal">
+              <span class="font-bold">💡 Explanation:</span> <span id="dispExplanation">-</span>
+            </div>
+          </div>
+
+          <!-- Camera Controls & Audio Toggle -->
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
+              ▶️ Start Camera
+            </button>
+            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
+              ⏹️ Stop Camera
+            </button>
+            <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700" title="Toggle audio feedback on scan">
+              🔔 Beep: ON
+            </button>
+          </div>
+
+          <!-- SCANNER CONTAINER -->
+          <div class="relative w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-gray-700" style="min-height: 250px;">
+            <video id="webcam-video" class="hidden" playsinline></video>
+            <canvas id="qr-canvas" class="w-full h-full object-cover"></canvas>
+            <div id="scanIndicator" class="hidden absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-extrabold px-2 py-1 rounded shadow animate-pulse">
+              ✓ Scan Registered
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: RESULTS & RANKINGS -->
+    <div id="tab-history" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h2 class="text-md font-bold text-gray-800">Class Performance & Rankings</h2>
+          <p class="text-xs text-gray-500">Live updated scores across all active sessions. Click any score or response to edit.</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">📥 Export CSV</button>
+          <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">Clear History</button>
+        </div>
+      </div>
+      
+      <div id="historyStats" class="grid grid-cols-3 gap-2 mb-4 text-center text-xs">
+        <div class="p-2 bg-blue-50 border border-blue-200 rounded">
+          <div class="text-gray-500 font-semibold">Total Scans</div>
+          <div id="statTotalScans" class="text-base font-bold text-blue-700">0</div>
+        </div>
+        <div class="p-2 bg-green-50 border border-green-200 rounded">
+          <div class="text-gray-500 font-semibold">Correct</div>
+          <div id="statCorrectScans" class="text-base font-bold text-green-700">0</div>
+        </div>
+        <div class="p-2 bg-purple-50 border border-purple-200 rounded">
+          <div class="text-gray-500 font-semibold">Accuracy</div>
+          <div id="statAccuracy" class="text-base font-bold text-purple-700">0%</div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto mb-6">
+        <h3 class="font-bold text-xs text-gray-700 mb-2">Student Cumulative Scores</h3>
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700 border-b">
+              <th class="p-2">Rank</th>
+              <th class="p-2">Card / Student</th>
+              <th class="p-2">Attempted</th>
+              <th class="p-2">Correct</th>
+              <th class="p-2">Score (%)</th>
+            </tr>
+          </thead>
+          <tbody id="studentScoreTable" class="divide-y text-gray-600"></tbody>
+        </table>
+      </div>
+
+      <div class="overflow-x-auto">
+        <h3 class="font-bold text-xs text-gray-700 mb-2">Detailed Response Logs (Editable)</h3>
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-700 border-b">
+              <th class="p-2">Q#</th>
+              <th class="p-2">Card / Student</th>
+              <th class="p-2">Scanned Answer</th>
+              <th class="p-2">Status</th>
+              <th class="p-2">Action</th>
+            </tr>
+          </thead>
+          <tbody id="editableLogsTable" class="divide-y text-gray-600"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: QUESTION & FOLDER MANAGEMENT -->
+    <div id="tab-bulk" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-md font-bold text-gray-800">Question & Folder Management</h2>
+        <button onclick="loadDemoQuestions()" class="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold">
+          ✨ Pre-fill Demo Questions
+        </button>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Target Folder Name:</label>
+          <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Grammar Unit 1">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Search Loaded Questions:</label>
+          <input type="text" id="searchQuestionInput" onkeyup="renderFolderManagement()" class="w-full p-2 border border-gray-300 rounded text-xs" placeholder="Search by text or folder...">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">
+          Bulk Format: <code>Question | A | B | C | D | Correct | Explanation</code>
+        </label>
+        <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
+      </div>
+
+      <button onclick="submitBulk()" class="mb-5 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700 transition">Upload Questions to Folder</button>
+
+      <hr class="my-4">
+      <h3 class="text-xs font-bold text-gray-700 mb-2">Existing Folders & Questions</h3>
+      <div id="folderManageList" class="space-y-3 text-xs"></div>
+    </div>
+
+    <!-- TAB 4: GROUPS MANAGEMENT -->
+    <div id="tab-groups" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <h2 class="text-md font-bold text-gray-800 mb-3">Student Group Management</h2>
+      
+      <!-- Group Selection & Creation -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="p-3 border rounded bg-gray-50">
+          <label class="block text-xs font-bold text-gray-700 mb-1">Select Active Group:</label>
+          <div class="flex space-x-2">
+            <select id="groupSelect" onchange="loadSelectedGroup()" class="flex-1 p-2 border rounded text-xs bg-white font-semibold">
+              <option value="">-- No Group Selected --</option>
+            </select>
+            <button onclick="deleteCurrentGroup()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-bold">Delete</button>
+          </div>
+        </div>
+
+        <div class="p-3 border rounded bg-gray-50">
+          <label class="block text-xs font-bold text-gray-700 mb-1">Create New Group:</label>
+          <div class="flex space-x-2">
+            <input type="text" id="newGroupName" placeholder="Group Name (e.g., Grade 5A)" class="flex-1 p-2 border rounded text-xs">
+            <button onclick="createNewGroup()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Students to Current Group -->
+      <div id="groupActiveArea" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <!-- Bulk Add Students -->
+          <div class="p-3 border rounded bg-blue-50">
+            <h3 class="text-xs font-bold text-blue-800 mb-2">Bulk Add Student Names (Auto-assign Sequential Cards)</h3>
+            <textarea id="bulkStudentNames" rows="4" class="w-full p-2 border rounded text-xs mb-2 font-mono" placeholder="John Doe&#10;Jane Smith&#10;Alex Johnson"></textarea>
+            <button onclick="bulkAddStudentsToGroup()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-bold">Assign Cards & Save</button>
+          </div>
+
+          <!-- Add Single Student with Card ID -->
+          <div class="p-3 border rounded bg-emerald-50">
+            <h3 class="text-xs font-bold text-emerald-800 mb-2">Add Individual Student to Group</h3>
+            <div class="space-y-2 text-xs">
+              <div>
+                <label class="block font-semibold mb-0.5">Student Name:</label>
+                <input type="text" id="singleStudentName" placeholder="Student Name" class="w-full p-1.5 border rounded">
+              </div>
+              <div>
+                <label class="block font-semibold mb-0.5">Assigned Card Number:</label>
+                <input type="number" id="singleStudentCard" min="1" max="100" placeholder="Card #" class="w-full p-1.5 border rounded">
+              </div>
+              <button onclick="addSingleStudentToGroup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded font-bold">Add Student to Group</button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <h3 class="text-xs font-bold text-gray-700 mb-2">Group Roster (<span id="activeGroupNameLabel"></span>)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-100 border-b">
+                <th class="p-2">Card #</th>
+                <th class="p-2">Student Name</th>
+                <th class="p-2">Action</th>
+              </tr>
+            </thead>
+            <tbody id="groupRosterTable" class="divide-y text-gray-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: STUDENT CARDS & PRINTING -->
+    <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="text-md font-bold text-gray-800">Student Cards & Activation</h2>
+          <p class="text-xs text-gray-500">Cards show ONLY Card #, QR Code, and ABCD letter markings (A Top, B Left, C Bottom, D Right).</p>
+        </div>
+        <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-2 rounded shadow">
+          🖨️ Print Cards (1 per Page - Pure Card View)
+        </button>
+      </div>
+      <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
+    </div>
+
+  </div>
+
+  <!-- PRINT CONTAINER (ONLY VISIBLE ON PRINT) -->
+  <div id="printArea" class="hidden"></div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
+    let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
+    let groupsData = {}; 
+    let currentGroupName = "";
+    
+    // 10 DEFAULT ACTIVE CARDS (1-10) AND 90 INACTIVE DEFAULT CARDS (11-100)
+    let activeCardsState = {};
+    for (let i = 1; i <= 100; i++) {
+      activeCardsState[String(i)] = (i <= 10);
+    }
+
+    let videoStream = null;
+    let isScannerRunning = false;
+    let scanAnimationId = null;
+    let scannedCache = new Map(); // studentId -> selectedAnswer
+    let currentActiveQId = "";
+    let isUserSelecting = false;
+    let pendingQuestionSelection = null; // { qId, folder, timestamp } to eliminate race conditions
+    let revealedStudents = new Set();
+    let revealAll = false;
+    let revealCorrect = false;
+    let revealDistribution = false; // By default hidden so students cannot peek at popular choices
+    let audioEnabled = true;
+
+    let selectedFolder = "";
+    let customQuestionOrder = null;
+
+    // Web Audio API Context for scanning feedback
+    let audioCtx = null;
+
+    // Helper: Escape HTML to prevent broken quotes or scripts
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.onload = function() { 
+      currentGroupName = localStorage.getItem('plickers_active_group') || "";
+      loadData(); 
+      setInterval(syncState, 2500); 
+    };
+
+    // HIGH LOUD BEEP FOR SUCCESSFUL SCANNING
+    function playBeepSound() {
+      if (!audioEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) { console.error("Audio error", e); }
+    }
+
+    function toggleAudioBeep() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btnAudioToggle').innerText = audioEnabled ? "🔔 Beep: ON" : "🔕 Beep: OFF";
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-scanner').classList.toggle('hidden', tab !== 'scanner');
+      document.getElementById('tab-history').classList.toggle('hidden', tab !== 'history');
+      document.getElementById('tab-bulk').classList.toggle('hidden', tab !== 'bulk');
+      document.getElementById('tab-groups').classList.toggle('hidden', tab !== 'groups');
+      document.getElementById('tab-cards').classList.toggle('hidden', tab !== 'cards');
+      if (tab === 'cards') renderStudentCards();
+      if (tab === 'history') renderHistoryTab();
+      if (tab === 'bulk') renderFolderManagement();
+      if (tab === 'groups') renderGroupsTab();
+    }
+
+    function loadData() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          appData = data;
+          if (data.activeFolder && !selectedFolder) {
+            selectedFolder = data.activeFolder;
+          }
+          initFolderSelection();
+          renderQuestionDropdown();
+          
+          let targetQId = data.activeQuestion || (document.getElementById('questionSelect').value);
+          if (targetQId) {
+            updateActiveQuestionUI(targetQId);
+          }
+          renderLogs(data.logs);
+          if (!document.getElementById('tab-bulk').classList.contains('hidden')) {
+            renderFolderManagement();
+          }
+        }).catch(err => console.error("Database connection error: ", err));
+    }
+
+    // ANTI-FLICKER SYNC: Never overwrite the question if the user just selected a new one
+    function syncState() {
+      if (isUserSelecting) return;
+
+      // Check if user made a question change that server hasn't acknowledged yet
+      let isPending = pendingQuestionSelection && (Date.now() - pendingQuestionSelection.timestamp < 8000);
+
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+          appData = data;
+
+          if (pendingQuestionSelection && String(data.activeQuestion) === String(pendingQuestionSelection.qId)) {
+            // Server has confirmed our selection! Clear pending lock
+            pendingQuestionSelection = null;
+            isPending = false;
+          }
+
+          if (!isPending) {
+            if (data.activeFolder && data.activeFolder !== selectedFolder) {
+              selectedFolder = data.activeFolder;
+              customQuestionOrder = null;
+            }
+            syncFolderSelectDropdown();
+            renderQuestionDropdown();
+            if (data.activeQuestion && String(data.activeQuestion) !== String(currentActiveQId)) {
+              updateActiveQuestionUI(data.activeQuestion);
+            }
+          } else {
+            // Keep user selection stable during in-flight write
+            syncFolderSelectDropdown();
+            renderQuestionDropdown();
+          }
+
+          renderLogs(data.logs);
+        }).catch(err => console.error("Sync error: ", err));
+    }
+
+    function getOrderedUniqueStudents() {
+      let list = [];
+      let studentMap = {};
+      
+      let localRoster = JSON.parse(localStorage.getItem('plickers_active_roster') || '[]');
+      if (localRoster && localRoster.length > 0) {
+        localRoster.forEach(s => {
+          studentMap[String(s.id)] = s.name;
+        });
+      } else {
+        (appData.studentList || []).forEach(s => {
+          studentMap[String(s.id)] = s.name;
+        });
+      }
+
+      for (let i = 1; i <= 100; i++) {
+        let idStr = String(i);
+        list.push({
+          id: idStr,
+          name: studentMap[idStr] || ("Card " + idStr)
+        });
+      }
+      return list;
+    }
+
+    function getStudentNameById(sId) {
+      let students = getOrderedUniqueStudents();
+      let match = students.find(s => String(s.id) === String(sId));
+      return match ? match.name : ("Card " + sId);
+    }
+
+    function initFolderSelection() {
+      let folders = appData.folders || [];
+      if (!selectedFolder && folders.length > 0) {
+        selectedFolder = folders[0];
+      }
+      syncFolderSelectDropdown();
+    }
+
+    function syncFolderSelectDropdown() {
+      let select = document.getElementById('singleFolderSelect');
+      let folders = appData.folders || [];
+      let currentVal = selectedFolder || select.value;
+
+      select.innerHTML = '<option value="">-- Select Folder --</option>';
+      folders.forEach(f => {
+        let opt = document.createElement('option');
+        opt.value = f;
+        opt.text = f;
+        if (f === currentVal) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if (!currentVal && folders.length > 0) {
+        select.value = folders[0];
+        selectedFolder = folders[0];
+      }
+    }
+
+    function onFolderSelectChange() {
+      let select = document.getElementById('singleFolderSelect');
+      selectedFolder = select.value;
+      customQuestionOrder = null;
+      renderQuestionDropdown();
+      
+      let qSelect = document.getElementById('questionSelect');
+      if (qSelect.value) {
+        onQuestionSelectChange();
+      }
+    }
+
+    function shuffleQuestions() {
+      let questions = getFilteredQuestions();
+      if (questions.length === 0) return;
+
+      let shuffled = [...questions];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      customQuestionOrder = shuffled;
+      renderQuestionDropdown();
+      if (document.getElementById('questionSelect').value) {
+        onQuestionSelectChange();
+      }
+    }
+
+    function getFilteredQuestions() {
+      let allQ = appData.questions || [];
+      if (!selectedFolder) return allQ;
+      return allQ.filter(q => (q.folder || "General") === selectedFolder);
+    }
+
+    function renderQuestionDropdown() {
+      let qSelect = document.getElementById('questionSelect');
+      let targetVal = (pendingQuestionSelection && pendingQuestionSelection.qId) || currentActiveQId || qSelect.value;
+      qSelect.innerHTML = '';
+
+      let filteredQuestions = customQuestionOrder || getFilteredQuestions();
+
+      if (filteredQuestions.length === 0) {
+        qSelect.innerHTML = '<option value="">No questions in selected folder.</option>';
+        return;
+      }
+
+      filteredQuestions.forEach(q => {
+        let opt = document.createElement('option');
+        opt.value = q.id;
+        opt.text = `Q${q.id}: ${q.text}`;
+        qSelect.appendChild(opt);
+      });
+
+      if (targetVal && filteredQuestions.some(q => String(q.id) === String(targetVal))) {
+        qSelect.value = targetVal;
+      } else if (filteredQuestions.length > 0) {
+        qSelect.value = filteredQuestions[0].id;
+      }
+    }
+
+    // FIX FOR QUESTION SWITCH FLICKER: Set pending lock and keep UI consistent
+    function onQuestionSelectChange() {
+      let qId = document.getElementById('questionSelect').value;
+      if (!qId) return;
+
+      // Lock question selection so background sync never reverts to old question
+      pendingQuestionSelection = { qId: String(qId), folder: selectedFolder, timestamp: Date.now() };
+      isUserSelecting = true;
+      revealCorrect = false;
+      
+      // AUTOMATICALLY HIDE RESPONSES & DISTRIBUTION ON QUESTION CHANGE (NO HINTS FOR STUDENTS)
+      revealAll = false;
+      revealDistribution = false;
+      document.getElementById('btnRevealAll').innerText = "👁️ Reveal Responses";
+      document.getElementById('btnRevealCorrect').innerText = "💡 Reveal Correct Answer";
+      updateDistributionVisibility();
+
+      scannedCache.clear();
+      document.getElementById('explanationBox').classList.add('hidden');
+      updateActiveQuestionUI(qId);
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'setActiveQuestion', questionId: qId, folderName: selectedFolder })
+      })
+      .then(res => res.json())
+      .then(resData => {
+        if (resData && resData.data) {
+          appData = resData.data;
+          renderLogs(appData.logs);
+        }
+      })
+      .catch(err => console.error("Error setting active question:", err))
+      .finally(() => { 
+        isUserSelecting = false; 
+      });
+    }
+
+    function updateActiveQuestionUI(qId) {
+      currentActiveQId = String(qId);
+      let qSelect = document.getElementById('questionSelect');
+      if (qSelect.value !== String(qId)) {
+        qSelect.value = qId;
+      }
+
+      // Strictly match both folder AND question ID
+      let q = (appData.questions || []).find(item => 
+        String(item.id) === String(qId) && (item.folder || "General") === selectedFolder
+      );
+
+      if (!q) {
+        let folderQuestions = getFilteredQuestions();
+        q = folderQuestions.find(item => String(item.id) === String(qId));
+      }
+
+      if (q) {
+        document.getElementById('dispQText').innerText = `Q${q.id}: ${q.text}`;
+        
+        let optA = document.getElementById('dispOptA');
+        let optB = document.getElementById('dispOptB');
+        let optC = document.getElementById('dispOptC');
+        let optD = document.getElementById('dispOptD');
+
+        optA.innerHTML = `<b>A:</b> ${escapeHtml(q.a || '-')}`;
+        optB.innerHTML = `<b>B:</b> ${escapeHtml(q.b || '-')}`;
+        optC.innerHTML = `<b>C:</b> ${escapeHtml(q.c || '-')}`;
+        optD.innerHTML = `<b>D:</b> ${escapeHtml(q.d || '-')}`;
+
+        // Reset highlight styles
+        [optA, optB, optC, optD].forEach(el => el.classList.remove('ring-4', 'ring-yellow-400', 'scale-[1.02]'));
+
+        if (revealCorrect) {
+          let correctKey = (q.correct || 'A').toUpperCase().trim();
+          if (correctKey === 'A') optA.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'B') optB.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'C') optC.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          if (correctKey === 'D') optD.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+
+          if (q.explanation) {
+            document.getElementById('dispExplanation').innerText = q.explanation;
+            document.getElementById('explanationBox').classList.remove('hidden');
+          }
+        }
+      }
+    }
+
+    function toggleRevealCorrect() {
+      revealCorrect = !revealCorrect;
+      document.getElementById('btnRevealCorrect').innerText = revealCorrect ? "🙈 Hide Correct Answer" : "💡 Reveal Correct Answer";
+      updateActiveQuestionUI(currentActiveQId);
+    }
+
+    function toggleRevealSingle(studentId) {
+      if (revealedStudents.has(studentId)) {
+        revealedStudents.delete(studentId);
+      } else {
+        revealedStudents.add(studentId);
+      }
+      renderLogs(appData.logs);
+    }
+
+    // Toggle reveal for responses + answer distribution
+    function toggleRevealAll() {
+      revealAll = !revealAll;
+      document.getElementById('btnRevealAll').innerText = revealAll ? "🔒 Hide Responses" : "👁️ Reveal Responses";
+      updateDistributionVisibility();
+      renderLogs(appData.logs);
+    }
+
+    // Manual toggle for distribution visibility
+    function toggleRevealDistribution() {
+      revealDistribution = !revealDistribution;
+      updateDistributionVisibility();
+      renderLogs(appData.logs);
+    }
+
+    function updateDistributionVisibility() {
+      let isVisible = revealAll || revealDistribution;
+      let badge = document.getElementById('distStatusBadge');
+      let btnDist = document.getElementById('btnToggleDist');
+
+      if (badge) {
+        badge.innerText = isVisible ? "👁️ Visible" : "🔒 Hidden";
+        badge.className = isVisible 
+          ? "text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.2 rounded font-bold"
+          : "text-[10px] text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.2 rounded font-bold";
+      }
+
+      if (btnDist) {
+        btnDist.innerText = isVisible ? "📊 Distribution: ON" : "📊 Distribution: OFF";
+      }
+    }
+
+    // Clear responses for ONLY the current question
+    function resetCurrentQuestionResponses() {
+      if (!currentActiveQId) return;
+      if (!confirm(`Reset scanned responses for Question #${currentActiveQId}?`)) return;
+
+      scannedCache.clear();
+      appData.logs = [];
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'resetQuestionResponses', questionId: currentActiveQId, folderName: selectedFolder })
+      }).then(() => loadData());
+    }
+
+    function getStudentStatsMap() {
+      let allLogs = appData.allLogs || [];
+      let stats = {};
+      
+      getOrderedUniqueStudents().forEach(s => {
+        stats[String(s.id)] = { id: String(s.id), name: s.name, total: 0, correct: 0, scorePct: 0 };
+      });
+
+      allLogs.forEach(l => {
+        let sid = String(l.studentId);
+        if (!stats[sid]) {
+          stats[sid] = { id: sid, name: getStudentNameById(sid), total: 0, correct: 0, scorePct: 0 };
+        }
+        stats[sid].total += 1;
+        if (l.isCorrect === 'Correct') stats[sid].correct += 1;
+      });
+
+      Object.keys(stats).forEach(sid => {
+        let st = stats[sid];
+        st.scorePct = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+      });
+
+      return stats;
+    }
+
+    function renderLogs(logs) {
+      let logUl = document.getElementById('scanLog');
+      let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
+      let validLogs = (logs || []).filter(l => activeCardsState[l.studentId]);
+
+      // Populate local scan cache from server state
+      validLogs.forEach(l => {
+        scannedCache.set(String(l.studentId), l.selectedAnswer);
+      });
+
+      // UPDATE PARALLEL LIST OF ACTIVE CARDS NOT SCANNED YET
+      let scannedStudentIds = new Set(validLogs.map(l => String(l.studentId)));
+      let pendingCards = activeStudents.filter(s => !scannedStudentIds.has(String(s.id)));
+      
+      let pendingContainer = document.getElementById('pendingCardsList');
+      document.getElementById('pendingCount').innerText = pendingCards.length;
+      
+      if (pendingCards.length === 0) {
+        pendingContainer.innerHTML = '<span class="text-emerald-700 font-bold">All active cards scanned!</span>';
+      } else {
+        pendingContainer.innerHTML = pendingCards.map(s => 
+          `<span class="bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shadow-sm" title="${escapeHtml(s.name)}">#${s.id}</span>`
+        ).join('');
+      }
+
+      // Update Response Count Badge
+      document.getElementById('responseCountBadge').innerText = `${validLogs.length}/${activeStudents.length}`;
+
+      // Calculate Answer Distribution
+      let counts = { A: 0, B: 0, C: 0, D: 0 };
+      validLogs.forEach(l => {
+        let ans = (l.selectedAnswer || '').toUpperCase();
+        if (counts[ans] !== undefined) counts[ans]++;
+      });
+
+      let totalLogs = validLogs.length || 1;
+      let pctResponded = activeStudents.length > 0 ? Math.round((validLogs.length / activeStudents.length) * 100) : 0;
+      document.getElementById('totalRespondedPct').innerText = `${pctResponded}% Responded`;
+
+      // HIDE ANSWER DISTRIBUTION UNTIL REVEALED TO PREVENT COPYING HINTS
+      let isDistributionVisible = revealAll || revealDistribution;
+
+      if (isDistributionVisible) {
+        document.getElementById('distCountA').innerText = counts.A;
+        document.getElementById('distCountB').innerText = counts.B;
+        document.getElementById('distCountC').innerText = counts.C;
+        document.getElementById('distCountD').innerText = counts.D;
+
+        document.getElementById('barHiddenTotal').style.width = '0%';
+        document.getElementById('barA').style.width = `${(counts.A / totalLogs) * 100}%`;
+        document.getElementById('barB').style.width = `${(counts.B / totalLogs) * 100}%`;
+        document.getElementById('barC').style.width = `${(counts.C / totalLogs) * 100}%`;
+        document.getElementById('barD').style.width = `${(counts.D / totalLogs) * 100}%`;
+      } else {
+        // HIDE OPTION COUNTS AND BARS
+        document.getElementById('distCountA').innerText = '?';
+        document.getElementById('distCountB').innerText = '?';
+        document.getElementById('distCountC').innerText = '?';
+        document.getElementById('distCountD').innerText = '?';
+
+        // Show neutral participation progress bar instead of breakdown
+        document.getElementById('barHiddenTotal').style.width = `${pctResponded}%`;
+        document.getElementById('barA').style.width = '0%';
+        document.getElementById('barB').style.width = '0%';
+        document.getElementById('barC').style.width = '0%';
+        document.getElementById('barD').style.width = '0%';
+      }
+
+      let banner = document.getElementById('completionBanner');
+      if (activeStudents.length > 0 && validLogs.length >= activeStudents.length) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      if (!validLogs || validLogs.length === 0) {
+        logUl.innerHTML = '<li class="text-gray-400 italic p-2 border rounded bg-gray-50 text-center">No responses scanned yet for this question.</li>';
+        return;
+      }
+
+      let statsMap = getStudentStatsMap();
+
+      let displayList = validLogs.map(l => {
+        let sid = String(l.studentId);
+        let currentName = getStudentNameById(sid);
+        let stStats = statsMap[sid] || { total: 0, correct: 0, scorePct: 0 };
+        return {
+          ...l,
+          studentName: currentName,
+          stats: stStats
+        };
+      });
+
+      if (revealAll) {
+        displayList.sort((a, b) => {
+          let aIsCorrect = a.isCorrect === 'Correct' ? 1 : 0;
+          let bIsCorrect = b.isCorrect === 'Correct' ? 1 : 0;
+          if (bIsCorrect !== aIsCorrect) return bIsCorrect - aIsCorrect;
+          if (b.stats.scorePct !== a.stats.scorePct) return b.stats.scorePct - a.stats.scorePct;
+          if (b.stats.correct !== a.stats.correct) return b.stats.correct - a.stats.correct;
+          return 0;
+        });
+      } else {
+        displayList.reverse(); 
+      }
+
+      logUl.innerHTML = displayList.map((l, index) => {
+        let sid = String(l.studentId);
+        let isRevealed = revealAll || revealedStudents.has(sid);
+        let isCorrect = l.isCorrect === 'Correct';
+        let rankLabel = revealAll ? `<span class="font-extrabold text-blue-700 mr-1.5">#${index + 1}</span>` : '';
+
+        if (isRevealed) {
+          let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+          let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
+          
+          return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
+            <div class="flex items-center">
+              ${rankLabel}
+              <div>
+                <div><b>${escapeHtml(l.studentName)}</b> selected <b>Option ${l.selectedAnswer}</b></div>
+                <div class="text-[10px] text-gray-500 font-semibold">Overall Score: ${l.stats.correct}/${l.stats.total} correct (${l.stats.scorePct}%)</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
+              <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
+            </div>
+          </li>`;
+        } else {
+          return `<li class="p-2 border rounded flex justify-between items-center bg-blue-50 border-blue-200 text-blue-900">
+            <div>
+              <div><b>${escapeHtml(l.studentName)}</b> — Response Received 🔒</div>
+              <div class="text-[10px] text-blue-500 italic font-medium">🔒 Score Hidden</div>
+            </div>
+            <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
+          </li>`;
+        }
+      }).join('');
+    }
+
+    function renderHistoryTab() {
+      let logs = appData.allLogs || [];
+      document.getElementById('statTotalScans').innerText = logs.length;
+      let correct = logs.filter(l => l.isCorrect === 'Correct').length;
+      document.getElementById('statCorrectScans').innerText = correct;
+      let acc = logs.length > 0 ? Math.round((correct / logs.length) * 100) : 0;
+      document.getElementById('statAccuracy').innerText = acc + '%';
+
+      let statsMap = {};
+      getOrderedUniqueStudents().forEach(s => {
+        statsMap[s.id] = { id: s.id, name: s.name, total: 0, correct: 0 };
+      });
+
+      logs.forEach(l => {
+        let sid = String(l.studentId);
+        let cName = getStudentNameById(sid);
+        if (!statsMap[sid]) {
+          statsMap[sid] = { id: sid, name: cName, total: 0, correct: 0 };
+        } else {
+          statsMap[sid].name = cName; 
+        }
+        statsMap[sid].total += 1;
+        if (l.isCorrect === 'Correct') statsMap[sid].correct += 1;
+      });
+
+      let sortedStudents = Object.values(statsMap).map(s => {
+        s.pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+        return s;
+      }).sort((a, b) => {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        if (b.correct !== a.correct) return b.correct - a.correct;
+        return b.total - a.total;
+      });
+
+      let currentRank = 1;
+      sortedStudents.forEach((st, idx) => {
+        if (idx > 0) {
+          let prev = sortedStudents[idx - 1];
+          let isTie = (st.pct === prev.pct && st.correct === prev.correct && st.total === prev.total);
+          if (!isTie) {
+            currentRank = idx + 1;
+          }
+        }
+        st.rank = currentRank;
+      });
+
+      let tbody = document.getElementById('studentScoreTable');
+      tbody.innerHTML = sortedStudents.map((st) => {
+        let rankBadge = `#${st.rank}`;
+        if (st.rank === 1) rankBadge = '🥇 1st';
+        if (st.rank === 2) rankBadge = '🥈 2nd';
+        if (st.rank === 3) rankBadge = '🥉 3rd';
+
+        return `<tr class="border-b">
+          <td class="p-2 font-extrabold text-blue-700">${rankBadge}</td>
+          <td class="p-2 font-bold">${escapeHtml(st.name)}</td>
+          <td class="p-2">${st.total}</td>
+          <td class="p-2 text-green-600 font-bold">${st.correct}</td>
+          <td class="p-2 font-semibold">${st.pct}%</td>
+        </tr>`;
+      }).join('');
+
+      renderEditableLogsTable();
+    }
+
+    function renderEditableLogsTable() {
+      let tbody = document.getElementById('editableLogsTable');
+      let logs = appData.allLogs || [];
+
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-2 text-gray-400 italic">No responses recorded to edit.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = logs.map((l, index) => {
+        let sid = String(l.studentId);
+        let name = getStudentNameById(sid);
+        let isCorrect = l.isCorrect === 'Correct';
+
+        return `<tr class="border-b">
+          <td class="p-2 font-bold">Q#${escapeHtml(l.questionId)}</td>
+          <td class="p-2">${escapeHtml(name)}</td>
+          <td class="p-2 font-bold">
+            <select onchange="updateLogResponse(${index}, this.value)" class="p-1 border rounded text-xs bg-white">
+              <option value="A" ${l.selectedAnswer === 'A' ? 'selected' : ''}>A</option>
+              <option value="B" ${l.selectedAnswer === 'B' ? 'selected' : ''}>B</option>
+              <option value="C" ${l.selectedAnswer === 'C' ? 'selected' : ''}>C</option>
+              <option value="D" ${l.selectedAnswer === 'D' ? 'selected' : ''}>D</option>
+            </select>
+          </td>
+          <td class="p-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+              ${l.isCorrect}
+            </span>
+          </td>
+          <td class="p-2">
+            <button onclick="deleteLogEntry(${index})" class="text-red-600 font-bold hover:underline">Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function updateLogResponse(index, newAnswer) {
+      if (!appData.allLogs || !appData.allLogs[index]) return;
+      let log = appData.allLogs[index];
+
+      let payload = {
+        action: 'saveResponse',
+        questionId: log.questionId,
+        studentId: log.studentId,
+        selectedAnswer: newAnswer,
+        folderName: selectedFolder
       };
 
-      allLogs.push(entry);
-      if (qId === String(activeQ) && (!activeFolder || !respFolder || respFolder === String(activeFolder))) {
-        logs.push(entry);
-      }
-    }
-  }
-
-  var rosData = rosSheet.getDataRange().getValues();
-  var studentList = [];
-  for (var k = 1; k < rosData.length; k++) {
-    if (rosData[k][0]) {
-      studentList.push({
-        id: String(rosData[k][0]),
-        name: rosData[k][1]
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        loadData();
       });
     }
-  }
 
-  return {
-    questions: questions,
-    folders: Object.keys(foldersSet),
-    activeQuestion: String(activeQ),
-    activeFolder: String(activeFolder),
-    logs: logs,
-    allLogs: allLogs,
-    studentList: studentList
-  };
-}
+    function deleteLogEntry(index) {
+      if (!confirm("Are you sure you want to delete this result entry?")) return;
+      let log = appData.allLogs[index];
 
-function setActiveQuestion(qId, folderName) {
-  var sSheet = getSheet('State');
-  sSheet.getRange("A1").setValue(String(qId));
-  if (folderName) {
-    sSheet.getRange("B1").setValue(String(folderName));
-  }
-}
-
-function saveResponse(qId, studentId, selectedAnswer, folderName) {
-  var rSheet = getSheet('Responses');
-  var data = rSheet.getDataRange().getValues();
-  var foundIndex = -1;
-
-  for (var i = 1; i < data.length; i++) {
-    var matchQ = (String(data[i][0]) === String(qId));
-    var matchS = (String(data[i][1]) === String(studentId));
-    var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
-    if (matchQ && matchS && matchF) {
-      foundIndex = i + 1;
-      break;
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'deleteResponse', questionId: log.questionId, studentId: log.studentId })
+      }).then(() => {
+        loadData();
+      });
     }
-  }
 
-  if (foundIndex > 0) {
-    rSheet.getRange(foundIndex, 3).setValue(selectedAnswer);
-    if (folderName) rSheet.getRange(foundIndex, 5).setValue(folderName);
-  } else {
-    rSheet.appendRow([qId, studentId, selectedAnswer, new Date(), folderName || ""]);
-  }
-}
+    function exportToCSV() {
+      let logs = appData.allLogs || [];
+      if (logs.length === 0) return alert("No history data to export.");
 
-function addBulkQuestions(folderName, questionsList) {
-  var qSheet = getSheet('Questions');
-  if (qSheet.getLastRow() === 0) {
-    qSheet.appendRow(["ID", "Text", "A", "B", "C", "D", "Correct", "Folder", "Explanation"]);
-  }
-  questionsList.forEach(function(q) {
-    qSheet.appendRow([q.id, q.text, q.a, q.b, q.c, q.d, q.correct, folderName, q.explanation]);
-  });
-}
+      let qMap = {};
+      (appData.questions || []).forEach(q => {
+        qMap[String(q.id)] = q;
+      });
 
-function deleteQuestion(qId, folderName) {
-  var qSheet = getSheet('Questions');
-  var data = qSheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var rowId = String(data[i][0]).trim();
-    var rowFolder = String(data[i][7] || "General").trim();
-    var matchId = (rowId === String(qId).trim());
-    var matchFolder = (!folderName || rowFolder === String(folderName).trim());
-    if (matchId && matchFolder) {
-      qSheet.deleteRow(i + 1);
-      break;
+      let csvContent = "data:text/csv;charset=utf-8,Folder,Question ID,Question Text,Student ID,Student Name,Selected Answer,Correct Answer,Is Correct,Explanation\n";
+      
+      logs.forEach(l => {
+        let q = qMap[String(l.questionId)] || {};
+        let folder = (q.folder || "General").replace(/"/g, '""');
+        let qText = (q.text || "").replace(/"/g, '""');
+        let sName = getStudentNameById(l.studentId).replace(/"/g, '""');
+        let correctAns = q.correct || "";
+        let explanation = (q.explanation || "").replace(/"/g, '""');
+
+        csvContent += `"${folder}",${l.questionId},"${qText}",${l.studentId},"${sName}",${l.selectedAnswer},${correctAns},${l.isCorrect},"${explanation}"\n`;
+      });
+
+      let encodedUri = encodeURI(csvContent);
+      let link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `plickers_detailed_report_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-  }
-}
 
-function deleteFolder(folderName) {
-  var qSheet = getSheet('Questions');
-  var data = qSheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][7] || "General") === String(folderName)) {
-      qSheet.deleteRow(i + 1);
+    function clearHistory() {
+      if (!confirm("Are you sure you want to clear all response history?")) return;
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'clearHistory' })
+      }).then(() => {
+        alert("History cleared!");
+        loadData();
+      });
     }
-  }
-}
 
-function deleteResponse(qId, studentId, folderName) {
-  var rSheet = getSheet('Responses');
-  var data = rSheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var matchQ = (String(data[i][0]) === String(qId));
-    var matchS = (String(data[i][1]) === String(studentId));
-    var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
-    if (matchQ && matchS && matchF) {
-      rSheet.deleteRow(i + 1);
+    // FOLDER & QUESTION MANAGEMENT (WITH SEARCH & SAFE PAGINATION FOR 1000+ QUESTIONS)
+    let folderQuestionLimits = {};
+
+    function renderFolderManagement() {
+      let container = document.getElementById('folderManageList');
+      container.innerHTML = '';
+      let folders = appData.folders || ["General"];
+      let searchTerm = (document.getElementById('searchQuestionInput').value || '').trim().toLowerCase();
+
+      folders.forEach(fName => {
+        let qInFolder = (appData.questions || []).filter(q => {
+          let matchesFolder = (q.folder || 'General') === fName;
+          let matchesSearch = !searchTerm || q.text.toLowerCase().includes(searchTerm) || fName.toLowerCase().includes(searchTerm);
+          return matchesFolder && matchesSearch;
+        });
+
+        if (searchTerm && qInFolder.length === 0) return;
+
+        let folderBox = document.createElement('div');
+        folderBox.className = 'border p-3 rounded bg-gray-50';
+
+        // Folder Header
+        let headerDiv = document.createElement('div');
+        headerDiv.className = 'flex justify-between items-center mb-2';
+        headerDiv.innerHTML = `
+          <span class="font-bold text-blue-700 text-sm">📁 ${escapeHtml(fName)} (${qInFolder.length} questions)</span>
+          <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-0.5 rounded text-xs font-semibold delete-folder-btn">Delete Folder</button>
+        `;
+        headerDiv.querySelector('.delete-folder-btn').onclick = () => deleteFolder(fName);
+        folderBox.appendChild(headerDiv);
+
+        // Safe rendering with pagination limit (50 questions at a time) for speed
+        let maxDisplay = folderQuestionLimits[fName] || 50;
+        let displayedQuestions = searchTerm ? qInFolder : qInFolder.slice(0, maxDisplay);
+
+        if (displayedQuestions.length === 0) {
+          let emptyDiv = document.createElement('div');
+          emptyDiv.className = 'text-gray-400 italic py-1';
+          emptyDiv.innerText = 'No questions matching filter.';
+          folderBox.appendChild(emptyDiv);
+        } else {
+          let listDiv = document.createElement('div');
+          listDiv.className = 'space-y-1 divide-y';
+
+          displayedQuestions.forEach(q => {
+            let row = document.createElement('div');
+            row.className = 'flex justify-between items-center py-1.5 text-xs';
+            row.innerHTML = `
+              <span class="truncate pr-2"><b>Q${escapeHtml(q.id)}:</b> ${escapeHtml(q.text)} <span class="text-gray-400 font-mono">(Ans: ${escapeHtml(q.correct)})</span></span>
+              <div class="flex space-x-2 flex-shrink-0">
+                <button class="text-red-500 font-bold hover:underline delete-q-btn">Delete</button>
+              </div>
+            `;
+            row.querySelector('.delete-q-btn').onclick = () => deleteQuestion(q.id, fName);
+            listDiv.appendChild(row);
+          });
+          folderBox.appendChild(listDiv);
+
+          // "Load More" button if there are more than 50 questions
+          if (!searchTerm && qInFolder.length > maxDisplay) {
+            let loadMoreBtn = document.createElement('button');
+            loadMoreBtn.className = 'mt-2 text-xs text-blue-600 font-bold hover:underline';
+            loadMoreBtn.innerText = `⬇️ Show more (${qInFolder.length - maxDisplay} remaining)...`;
+            loadMoreBtn.onclick = () => {
+              folderQuestionLimits[fName] = maxDisplay + 100;
+              renderFolderManagement();
+            };
+            folderBox.appendChild(loadMoreBtn);
+          }
+        }
+
+        container.appendChild(folderBox);
+      });
     }
-  }
-}
 
-function resetQuestionResponses(qId, folderName) {
-  var rSheet = getSheet('Responses');
-  var data = rSheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var matchQ = (String(data[i][0]) === String(qId));
-    var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
-    if (matchQ && matchF) {
-      rSheet.deleteRow(i + 1);
+    function loadDemoQuestions() {
+      document.getElementById('targetFolderInput').value = "English Grammar";
+      document.getElementById('bulkInput').value = 
+        "She ___ to school every morning. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple.\n" +
+        "They ___ soccer yesterday afternoon. | played | play | playing | plays | A | Past simple tense requires '-ed'.\n" +
+        "Which word is a noun? | Quick | Run | Apple | Beautiful | C | 'Apple' is a concrete object noun.";
     }
-  }
-}
 
-function clearHistory() {
-  var rSheet = getSheet('Responses');
-  rSheet.clear();
-  rSheet.appendRow(["QuestionID", "StudentID", "SelectedAnswer", "Timestamp", "Folder"]);
-}
+    // FIX FOR QUESTION DELETION: Pass folder name, perform optimistic update, and immediately refresh UI!
+    function deleteQuestion(qId, folderName) {
+      if (!confirm(`Delete Question #${qId} from folder "${folderName}"?`)) return;
 
-function saveStudentNames(studentList) {
-  var rosSheet = getSheet('Roster');
-  rosSheet.clear();
-  rosSheet.appendRow(["CardID", "StudentName"]);
-  studentList.forEach(function(s) {
-    rosSheet.appendRow([s.id, s.name]);
-  });
-}
+      // 1. Optimistic local update: remove immediately
+      appData.questions = (appData.questions || []).filter(q => 
+        !(String(q.id) === String(qId) && (q.folder || "General") === folderName)
+      );
+
+      // If currently active question was deleted, select next available
+      if (String(currentActiveQId) === String(qId)) {
+        let remaining = getFilteredQuestions();
+        if (remaining.length > 0) {
+          updateActiveQuestionUI(remaining[0].id);
+        } else {
+          document.getElementById('dispQText').innerText = "Select a question to display...";
+          ['dispOptA', 'dispOptB', 'dispOptC', 'dispOptD'].forEach(id => {
+            document.getElementById(id).innerHTML = "-";
+          });
+        }
+      }
+
+      // 2. Re-render UI immediately!
+      renderFolderManagement();
+      renderQuestionDropdown();
+
+      // 3. Send request to backend
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'deleteQuestion', questionId: qId, folderName: folderName })
+      })
+      .then(res => res.json())
+      .then(resData => {
+        if (resData && resData.data) {
+          appData = resData.data;
+          renderFolderManagement();
+          renderQuestionDropdown();
+        }
+      })
+      .catch(err => {
+        console.error("Delete question error:", err);
+        loadData();
+      });
+    }
+
+    // FIX FOR FOLDER DELETION: Optimistic update & instant refresh
+    function deleteFolder(fName) {
+      if (!confirm(`Delete folder "${fName}" and ALL questions in it?`)) return;
+
+      // 1. Optimistic local update
+      appData.folders = (appData.folders || []).filter(f => f !== fName);
+      appData.questions = (appData.questions || []).filter(q => (q.folder || "General") !== fName);
+
+      if (selectedFolder === fName) {
+        selectedFolder = (appData.folders && appData.folders.length > 0) ? appData.folders[0] : "";
+      }
+
+      // 2. Refresh UI immediately
+      renderFolderManagement();
+      syncFolderSelectDropdown();
+      renderQuestionDropdown();
+
+      // 3. Send request to backend
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'deleteFolder', folderName: fName })
+      })
+      .then(res => res.json())
+      .then(resData => {
+        if (resData && resData.data) {
+          appData = resData.data;
+          renderFolderManagement();
+          syncFolderSelectDropdown();
+          renderQuestionDropdown();
+        }
+      })
+      .catch(err => {
+        console.error("Delete folder error:", err);
+        loadData();
+      });
+    }
+
+    function renderGroupsTab() {
+      let select = document.getElementById('groupSelect');
+      let savedGroups = JSON.parse(localStorage.getItem('plickers_groups') || '{}');
+      groupsData = savedGroups;
+
+      select.innerHTML = '<option value="">-- Select Active Group --</option>';
+      Object.keys(groupsData).forEach(gName => {
+        let opt = document.createElement('option');
+        opt.value = gName;
+        opt.text = gName;
+        if (gName === currentGroupName) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if (currentGroupName && groupsData[currentGroupName]) {
+        document.getElementById('groupActiveArea').classList.remove('hidden');
+        document.getElementById('activeGroupNameLabel').innerText = currentGroupName;
+        renderGroupRosterTable();
+      } else {
+        document.getElementById('groupActiveArea').classList.add('hidden');
+      }
+    }
+
+    function createNewGroup() {
+      let input = document.getElementById('newGroupName');
+      let name = input.value.trim();
+      if (!name) return alert("Enter a group name.");
+      
+      if (!groupsData[name]) {
+        groupsData[name] = [];
+        localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      }
+      currentGroupName = name;
+      localStorage.setItem('plickers_active_group', name);
+      input.value = '';
+      renderGroupsTab();
+    }
+
+    function loadSelectedGroup() {
+      let val = document.getElementById('groupSelect').value;
+      currentGroupName = val;
+      localStorage.setItem('plickers_active_group', val);
+      renderGroupsTab();
+
+      if (val && groupsData[val]) {
+        syncGroupToRoster(groupsData[val]);
+      }
+    }
+
+    function deleteCurrentGroup() {
+      if (!currentGroupName) return;
+      if (!confirm(`Delete group "${currentGroupName}"?`)) return;
+
+      delete groupsData[currentGroupName];
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      currentGroupName = "";
+      localStorage.removeItem('plickers_active_group');
+      renderGroupsTab();
+    }
+
+    function bulkAddStudentsToGroup() {
+      if (!currentGroupName) return alert("Select a group first.");
+      let rawNames = document.getElementById('bulkStudentNames').value.trim();
+      if (!rawNames) return;
+
+      let names = rawNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      let groupList = [];
+
+      names.forEach((name, index) => {
+        groupList.push({ id: String(index + 1), name: name });
+      });
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      
+      document.getElementById('bulkStudentNames').value = '';
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function addSingleStudentToGroup() {
+      if (!currentGroupName) return alert("Select a group first.");
+      let name = document.getElementById('singleStudentName').value.trim();
+      let cardNum = document.getElementById('singleStudentCard').value.trim();
+
+      if (!name || !cardNum) return alert("Provide both student name and card number.");
+
+      let groupList = groupsData[currentGroupName] || [];
+      groupList = groupList.filter(s => String(s.id) !== String(cardNum));
+      groupList.push({ id: String(cardNum), name: name });
+
+      groupList.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+
+      document.getElementById('singleStudentName').value = '';
+      document.getElementById('singleStudentCard').value = '';
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function removeStudentFromGroup(cardId) {
+      if (!currentGroupName) return;
+      let groupList = groupsData[currentGroupName] || [];
+      groupList = groupList.filter(s => String(s.id) !== String(cardId));
+
+      groupsData[currentGroupName] = groupList;
+      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
+      renderGroupRosterTable();
+      syncGroupToRoster(groupList);
+    }
+
+    function renderGroupRosterTable() {
+      let tbody = document.getElementById('groupRosterTable');
+      let groupList = groupsData[currentGroupName] || [];
+
+      if (groupList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="p-2 text-gray-400 italic">No students added to this group yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = groupList.map(s => `
+        <tr class="border-b">
+          <td class="p-2 font-bold text-blue-700">Card #${s.id}</td>
+          <td class="p-2 font-semibold text-gray-800">${escapeHtml(s.name)}</td>
+          <td class="p-2">
+            <button onclick="removeStudentFromGroup('${s.id}')" class="text-red-500 hover:underline font-bold">Remove</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function syncGroupToRoster(groupList) {
+      for (let i = 1; i <= 100; i++) {
+        activeCardsState[String(i)] = false;
+      }
+
+      let updatedList = [];
+      let groupMap = {};
+      groupList.forEach(s => {
+        groupMap[String(s.id)] = s.name;
+        activeCardsState[String(s.id)] = true;
+      });
+
+      for (let i = 1; i <= 100; i++) {
+        let idStr = String(i);
+        updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card " + idStr) });
+      }
+
+      localStorage.setItem('plickers_active_roster', JSON.stringify(updatedList));
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveStudentNames', studentList: updatedList })
+      }).then(() => {
+        loadData();
+      });
+    }
+
+    function renderStudentCards() {
+      let container = document.getElementById('cardsContainer');
+      container.innerHTML = '';
+      
+      let students = getOrderedUniqueStudents();
+      
+      students.forEach(s => {
+        let isActive = activeCardsState[s.id] !== false;
+        let cardDiv = document.createElement('div');
+        cardDiv.className = `border p-3 rounded text-center transition-all ${isActive ? 'bg-white border-gray-300' : 'bg-red-50 opacity-60'} flex flex-col items-center shadow-sm relative`;
+        
+        cardDiv.innerHTML = `
+          <div class="flex justify-between items-center w-full mb-1">
+            <span class="text-xs font-black text-gray-800">Card #${s.id}</span>
+            <button onclick="toggleCardStatus('${s.id}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}">
+              ${isActive ? 'Active' : 'Inactive'}
+            </button>
+          </div>
+          
+          <div class="w-full border-2 border-black p-2 bg-white flex flex-col justify-between items-center relative my-1 rounded">
+            <!-- TOP: A -->
+            <div class="font-extrabold text-sm text-black">A</div>
+            <div class="flex justify-between items-center w-full my-1">
+              <!-- LEFT: B -->
+              <span class="font-extrabold text-sm text-black pr-1">B</span>
+              <div id="card-qr-${s.id}" class="flex justify-center items-center"></div>
+              <!-- RIGHT: D -->
+              <span class="font-extrabold text-sm text-black pl-1">D</span>
+            </div>
+            <!-- BOTTOM: C -->
+            <div class="font-extrabold text-sm text-black">C</div>
+          </div>
+        `;
+        container.appendChild(cardDiv);
+        new QRCode(document.getElementById(`card-qr-${s.id}`), { text: String(s.id), width: 75, height: 75 });
+      });
+    }
+
+    function toggleCardStatus(sId) {
+      activeCardsState[sId] = !activeCardsState[sId];
+      renderStudentCards();
+    }
+
+    function printActiveCards() {
+      let printContainer = document.getElementById('printArea');
+      printContainer.innerHTML = '';
+      printContainer.classList.remove('hidden');
+
+      let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
+
+      if (activeStudents.length === 0) {
+        alert("No active cards selected to print.");
+        return;
+      }
+
+      activeStudents.forEach(s => {
+        let pageDiv = document.createElement('div');
+        pageDiv.className = 'print-card-page';
+
+        pageDiv.innerHTML = `
+          <div style="font-size: 3rem; font-weight: 900; margin-bottom: 1.5rem; text-transform: uppercase; tracking: 0.1em;">
+            CARD #${s.id}
+          </div>
+          
+          <div style="border: 6px solid black; padding: 1.5rem; background: white; border-radius: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-between; width: 450px; height: 450px;">
+            <div style="font-size: 2.5rem; font-weight: 900;">A</div>
+            <div style="display: flex; justify-between: space-between; align-items: center; width: 100%;">
+              <span style="font-size: 2.5rem; font-weight: 900;">B</span>
+              <div id="print-qr-${s.id}"></div>
+              <span style="font-size: 2.5rem; font-weight: 900;">D</span>
+            </div>
+            <div style="font-size: 2.5rem; font-weight: 900;">C</div>
+          </div>
+        `;
+
+        printContainer.appendChild(pageDiv);
+
+        new QRCode(document.getElementById(`print-qr-${s.id}`), {
+          text: String(s.id),
+          width: 280,
+          height: 280
+        });
+      });
+
+      setTimeout(() => {
+        window.print();
+        printContainer.classList.add('hidden');
+      }, 500);
+    }
+
+    /* -------------------------------------------------------------
+       ROTATION-AWARE CAMERA ENGINE (jsQR)
+    ------------------------------------------------------------- */
+    async function startScanner() {
+      if (isScannerRunning) await stopScanner();
+      
+      const video = document.getElementById('webcam-video');
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = videoStream;
+        video.setAttribute("playsinline", true);
+        await video.play();
+        
+        isScannerRunning = true;
+        scanAnimationId = requestAnimationFrame(tickScanner);
+      } catch (err) {
+        alert("Camera initialization failed: " + err);
+      }
+    }
+
+    async function stopScanner() {
+      isScannerRunning = false;
+      if (scanAnimationId) {
+        cancelAnimationFrame(scanAnimationId);
+        scanAnimationId = null;
+      }
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      const video = document.getElementById('webcam-video');
+      video.srcObject = null;
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function tickScanner() {
+      if (!isScannerRunning) return;
+
+      const video = document.getElementById('webcam-video');
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert"
+        });
+
+        if (code) {
+          drawQRBoundingBox(ctx, code.location);
+          processDetectedQR(code);
+        }
+      }
+      scanAnimationId = requestAnimationFrame(tickScanner);
+    }
+
+    function drawQRBoundingBox(ctx, location) {
+      function drawLine(begin, end) {
+        ctx.beginPath();
+        ctx.moveTo(begin.x, begin.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#10B981";
+        ctx.stroke();
+      }
+      drawLine(location.topLeftCorner, location.topRightCorner);
+      drawLine(location.topRightCorner, location.bottomRightCorner);
+      drawLine(location.bottomRightCorner, location.bottomLeftCorner);
+      drawLine(location.bottomLeftCorner, location.topLeftCorner);
+
+      ctx.fillStyle = "#EF4444";
+      ctx.beginPath();
+      ctx.arc(location.topLeftCorner.x, location.topLeftCorner.y, 6, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function showScanIndicator() {
+      let ind = document.getElementById('scanIndicator');
+      ind.classList.remove('hidden');
+      setTimeout(() => ind.classList.add('hidden'), 1000);
+    }
+
+    function processDetectedQR(code) {
+      let studentId = code.data.trim();
+      
+      if (activeCardsState[studentId] === false) return;
+
+      let questionId = document.getElementById('questionSelect').value;
+      if (!questionId) return;
+
+      // Prevent re-scans for already scanned students
+      if (scannedCache.has(studentId)) {
+        return;
+      }
+
+      // Compute Orientation Angle using Top-Left and Top-Right Corners
+      const p0 = code.location.topLeftCorner;
+      const p1 = code.location.topRightCorner;
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      if (angle < 0) angle += 360;
+
+      // CORRECT ORIENTATION MAPPING:
+      // Card markings: A Top, B Left, C Bottom, D Right
+      // When A is held on top: angle ≈ 0° (315° to 45°) -> "A"
+      // When B is rotated to the top (90° clockwise): dx ≈ 0, dy > 0 -> angle ≈ 90° (45° to 135°) -> "B"
+      // When C is rotated to the top (180° upside down): dx < 0, dy ≈ 0 -> angle ≈ 180° (135° to 225°) -> "C"
+      // When D is rotated to the top (90° counter-clockwise): dx ≈ 0, dy < 0 -> angle ≈ 270° (225° to 315°) -> "D"
+      let selectedAnswer = "A";
+      if (angle >= 45 && angle < 135) {
+        selectedAnswer = "B"; // FIXED: Previously inverted with D
+      } else if (angle >= 135 && angle < 225) {
+        selectedAnswer = "C";
+      } else if (angle >= 225 && angle < 315) {
+        selectedAnswer = "D"; // FIXED: Previously inverted with B
+      }
+
+      // Record response in cache
+      scannedCache.set(studentId, selectedAnswer);
+
+      playBeepSound();
+      showScanIndicator();
+
+      let payload = {
+        action: 'saveResponse',
+        questionId: questionId,
+        studentId: studentId,
+        selectedAnswer: selectedAnswer,
+        folderName: selectedFolder
+      };
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }).then(() => syncState()).catch(err => console.error("Error saving scan:", err));
+    }
+
+    function submitBulk() {
+      let rawText = document.getElementById('bulkInput').value.trim();
+      let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
+      if (!rawText) return;
+      
+      let existingQuestions = appData.questions || [];
+      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
+      let maxId = 0;
+      folderQuestions.forEach(q => {
+        let parsed = parseInt(q.id, 10);
+        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
+      });
+      let nextId = maxId + 1;
+
+      let lines = rawText.split('\n');
+      let questionsList = [];
+
+      lines.forEach(line => {
+        let parts = line.split('|').map(p => p.trim());
+        
+        if (parts.length >= 6) {
+          questionsList.push({ 
+            id: String(nextId++), 
+            text: parts[0], 
+            a: parts[1], 
+            b: parts[2], 
+            c: parts[3], 
+            d: parts[4], 
+            correct: parts[5],
+            explanation: parts[6] || ""
+          });
+        }
+      });
+
+      if (questionsList.length === 0) {
+        return alert("Formatting error. Make sure to format lines as:\nQuestion | A | B | C | D | Correct | Explanation");
+      }
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: questionsList })
+      }).then(() => {
+        alert(`Uploaded ${questionsList.length} question(s) to folder "${folderName}"!`);
+        document.getElementById('bulkInput').value = '';
+        switchTab('scanner');
+        loadData();
+      });
+    }
+  </script>
+
+  <!-- GOOGLE APPS SCRIPT BACKEND CODE (UPDATED & ENHANCED) -->
+  <script id="google-apps-script-code" type="text/plain">
+    /**
+     * Google Apps Script Backend for Plickers Web App.
+     * Attach this script to your Google Spreadsheet (Extensions > Apps Script).
+     * Deploy as Web App: Execute as "Me", Who has access: "Anyone".
+     */
+
+    function doGet(e) {
+      var data = getData();
+      return ContentService.createTextOutput(JSON.stringify(data))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    function doPost(e) {
+      try {
+        var postData = JSON.parse(e.postData.contents);
+        var action = postData.action;
+
+        if (action === 'setActiveQuestion') {
+          setActiveQuestion(postData.questionId, postData.folderName);
+        } else if (action === 'saveResponse') {
+          saveResponse(postData.questionId, postData.studentId, postData.selectedAnswer, postData.folderName);
+        } else if (action === 'addBulkQuestions') {
+          addBulkQuestions(postData.folderName, postData.questionsList);
+        } else if (action === 'deleteQuestion') {
+          deleteQuestion(postData.questionId, postData.folderName);
+        } else if (action === 'deleteFolder') {
+          deleteFolder(postData.folderName);
+        } else if (action === 'deleteResponse') {
+          deleteResponse(postData.questionId, postData.studentId, postData.folderName);
+        } else if (action === 'resetQuestionResponses') {
+          resetQuestionResponses(postData.questionId, postData.folderName);
+        } else if (action === 'clearHistory') {
+          clearHistory();
+        } else if (action === 'saveStudentNames') {
+          saveStudentNames(postData.studentList);
+        }
+
+        var data = getData();
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", data: data }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (err) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    function getSheet(name) {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheet = ss.getSheetByName(name);
+      if (!sheet) {
+        sheet = ss.insertSheet(name);
+      }
+      return sheet;
+    }
+
+    function getData() {
+      var qSheet = getSheet('Questions');
+      var rSheet = getSheet('Responses');
+      var sSheet = getSheet('State');
+      var rosSheet = getSheet('Roster');
+
+      var qData = qSheet.getDataRange().getValues();
+      var questions = [];
+      var foldersSet = {};
+
+      for (var i = 1; i < qData.length; i++) {
+        if (qData[i][0]) {
+          var folder = qData[i][7] || "General";
+          foldersSet[folder] = true;
+          questions.push({
+            id: String(qData[i][0]),
+            text: qData[i][1],
+            a: qData[i][2],
+            b: qData[i][3],
+            c: qData[i][4],
+            d: qData[i][5],
+            correct: String(qData[i][6]).toUpperCase(),
+            folder: folder,
+            explanation: qData[i][8] || ""
+          });
+        }
+      }
+
+      var activeQ = sSheet.getRange("A1").getValue() || "";
+      var activeFolder = sSheet.getRange("B1").getValue() || "";
+
+      var respData = rSheet.getDataRange().getValues();
+      var logs = [];
+      var allLogs = [];
+
+      for (var j = 1; j < respData.length; j++) {
+        if (respData[j][0]) {
+          var qId = String(respData[j][0]);
+          var sId = String(respData[j][1]);
+          var ans = String(respData[j][2]).toUpperCase();
+          var respFolder = respData[j][4] ? String(respData[j][4]) : "";
+          
+          var qObj = questions.find(function(q) { 
+            return q.id === qId && (respFolder ? q.folder === respFolder : (!activeFolder || q.folder === activeFolder)); 
+          });
+          if (!qObj) {
+            qObj = questions.find(function(q) { return q.id === qId; });
+          }
+          
+          var isCorrect = (qObj && qObj.correct === ans) ? "Correct" : "Incorrect";
+
+          var entry = {
+            questionId: qId,
+            studentId: sId,
+            selectedAnswer: ans,
+            isCorrect: isCorrect,
+            folder: respFolder
+          };
+
+          allLogs.push(entry);
+          if (qId === String(activeQ) && (!activeFolder || !respFolder || respFolder === String(activeFolder))) {
+            logs.push(entry);
+          }
+        }
+      }
+
+      var rosData = rosSheet.getDataRange().getValues();
+      var studentList = [];
+      for (var k = 1; k < rosData.length; k++) {
+        if (rosData[k][0]) {
+          studentList.push({
+            id: String(rosData[k][0]),
+            name: rosData[k][1]
+          });
+        }
+      }
+
+      return {
+        questions: questions,
+        folders: Object.keys(foldersSet),
+        activeQuestion: String(activeQ),
+        activeFolder: String(activeFolder),
+        logs: logs,
+        allLogs: allLogs,
+        studentList: studentList
+      };
+    }
+
+    function setActiveQuestion(qId, folderName) {
+      var sSheet = getSheet('State');
+      sSheet.getRange("A1").setValue(String(qId));
+      if (folderName) {
+        sSheet.getRange("B1").setValue(String(folderName));
+      }
+    }
+
+    function saveResponse(qId, studentId, selectedAnswer, folderName) {
+      var rSheet = getSheet('Responses');
+      var data = rSheet.getDataRange().getValues();
+      var foundIndex = -1;
+
+      for (var i = 1; i < data.length; i++) {
+        var matchQ = (String(data[i][0]) === String(qId));
+        var matchS = (String(data[i][1]) === String(studentId));
+        var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
+        if (matchQ && matchS && matchF) {
+          foundIndex = i + 1;
+          break;
+        }
+      }
+
+      if (foundIndex > 0) {
+        rSheet.getRange(foundIndex, 3).setValue(selectedAnswer);
+        if (folderName) rSheet.getRange(foundIndex, 5).setValue(folderName);
+      } else {
+        rSheet.appendRow([qId, studentId, selectedAnswer, new Date(), folderName || ""]);
+      }
+    }
+
+    function addBulkQuestions(folderName, questionsList) {
+      var qSheet = getSheet('Questions');
+      if (qSheet.getLastRow() === 0) {
+        qSheet.appendRow(["ID", "Text", "A", "B", "C", "D", "Correct", "Folder", "Explanation"]);
+      }
+      questionsList.forEach(function(q) {
+        qSheet.appendRow([q.id, q.text, q.a, q.b, q.c, q.d, q.correct, folderName, q.explanation]);
+      });
+    }
+
+    // FIX: Scoped by BOTH questionId AND folderName so questions in other folders are never accidentally touched
+    function deleteQuestion(qId, folderName) {
+      var qSheet = getSheet('Questions');
+      var data = qSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rowId = String(data[i][0]).trim();
+        var rowFolder = String(data[i][7] || "General").trim();
+        var matchId = (rowId === String(qId).trim());
+        var matchFolder = (!folderName || rowFolder === String(folderName).trim());
+        if (matchId && matchFolder) {
+          qSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+    }
+
+    function deleteFolder(folderName) {
+      var qSheet = getSheet('Questions');
+      var data = qSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][7] || "General") === String(folderName)) {
+          qSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function deleteResponse(qId, studentId, folderName) {
+      var rSheet = getSheet('Responses');
+      var data = rSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var matchQ = (String(data[i][0]) === String(qId));
+        var matchS = (String(data[i][1]) === String(studentId));
+        var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
+        if (matchQ && matchS && matchF) {
+          rSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function resetQuestionResponses(qId, folderName) {
+      var rSheet = getSheet('Responses');
+      var data = rSheet.getDataRange().getValues();
+      for (var i = data.length - 1; i >= 1; i--) {
+        var matchQ = (String(data[i][0]) === String(qId));
+        var matchF = (!folderName || !data[i][4] || String(data[i][4]) === String(folderName));
+        if (matchQ && matchF) {
+          rSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    function clearHistory() {
+      var rSheet = getSheet('Responses');
+      rSheet.clear();
+      rSheet.appendRow(["QuestionID", "StudentID", "SelectedAnswer", "Timestamp", "Folder"]);
+    }
+
+    function saveStudentNames(studentList) {
+      var rosSheet = getSheet('Roster');
+      rosSheet.clear();
+      rosSheet.appendRow(["CardID", "StudentName"]);
+      studentList.forEach(function(s) {
+        rosSheet.appendRow([s.id, s.name]);
+      });
+    }
+  </script>
+</body>
+</html>
