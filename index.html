@@ -3,17 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Plickers Web App - Pro Edition</title>
-  <!-- Tailwind CSS & QR Libraries -->
+  <title>Plickers</title>
+  <!-- Tailwind CSS & Scanning Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- Document Parsers (PDF & DOCX) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   
   <style>
-    /* PRINT STYLES: 1 Card per Page, Large QR with ABCD Margins, Rule Box */
+    /* Classic, formal typography and print styles */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Print Styles: 1 Card per Page, Large QR with ABCD Margins */
     @media print {
       body * {
         visibility: hidden;
@@ -40,85 +46,101 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800">
-  <div class="container mx-auto p-3 max-w-6xl no-print">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen">
+  <div class="container mx-auto p-4 max-w-6xl no-print">
     
-    <!-- TOP NAVIGATION -->
-    <header class="bg-blue-600 text-white p-3 rounded-lg shadow-md mb-4 flex justify-between items-center flex-wrap gap-2">
-      <div class="flex items-center space-x-2">
-        <h1 class="text-base font-extrabold tracking-wide">Plickers Web App</h1>
-        <span class="text-[10px] bg-blue-800 text-blue-200 px-2 py-0.5 rounded-full font-semibold">Pro Edition</span>
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-sm border border-slate-800 mb-5 flex justify-between items-center flex-wrap gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-extrabold text-sm tracking-tight shadow-sm">
+          P
+        </div>
+        <span class="text-lg font-bold tracking-tight text-white">Plickers</span>
       </div>
 
-      <!-- NAV BUTTONS -->
-      <div class="flex space-x-1 text-xs">
-        <button onclick="switchTab('scanner')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Scanner</button>
-        <button onclick="switchTab('history')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Results & Reports</button>
-        <button onclick="switchTab('bulk')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Questions</button>
-        <button onclick="switchTab('groups')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Groups</button>
-        <button onclick="switchTab('cards')" class="bg-blue-700 hover:bg-blue-800 px-2.5 py-1.5 rounded font-semibold text-white transition">Cards</button>
-      </div>
+      <!-- SEGMENTED NAVIGATION TABS -->
+      <nav class="flex items-center space-x-1 bg-slate-950/60 p-1 rounded-lg border border-slate-800">
+        <button id="nav-scanner" onclick="switchTab('scanner')" class="bg-slate-800 text-white px-3 py-1.5 rounded-md font-semibold text-xs shadow-sm ring-1 ring-slate-700/60 transition">
+          Scanner
+        </button>
+        <button id="nav-history" onclick="switchTab('history')" class="text-slate-300 hover:text-white hover:bg-slate-800/60 px-3 py-1.5 rounded-md font-medium text-xs transition">
+          Results & Reports
+        </button>
+        <button id="nav-bulk" onclick="switchTab('bulk')" class="text-slate-300 hover:text-white hover:bg-slate-800/60 px-3 py-1.5 rounded-md font-medium text-xs transition">
+          Questions
+        </button>
+        <button id="nav-groups" onclick="switchTab('groups')" class="text-slate-300 hover:text-white hover:bg-slate-800/60 px-3 py-1.5 rounded-md font-medium text-xs transition">
+          Groups
+        </button>
+        <button id="nav-cards" onclick="switchTab('cards')" class="text-slate-300 hover:text-white hover:bg-slate-800/60 px-3 py-1.5 rounded-md font-medium text-xs transition">
+          Cards
+        </button>
+      </nav>
     </header>
 
+    <!-- ===================================================================== -->
     <!-- TAB 1: SCANNER & PROJECTOR DISPLAY -->
-    <div id="tab-scanner" class="mb-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- ===================================================================== -->
+    <div id="tab-scanner" class="mb-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         
-        <!-- LEFT HALF: Live Student Responses & Dynamic Breakdown -->
-        <div class="bg-white p-4 rounded-lg shadow-md border order-2 md:order-1 flex flex-col justify-start">
-          <div class="flex justify-between items-center mb-2 border-b pb-2 flex-wrap gap-1">
-            <h3 class="font-bold text-sm text-gray-800 flex items-center gap-1.5">
-              <span>Live Responses</span>
-              <span id="responseCountBadge" class="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0/0</span>
-            </h3>
-            <div class="flex flex-wrap gap-1">
-              <button onclick="toggleRevealCorrect()" id="btnRevealCorrect" class="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold px-2 py-1 rounded">
-                💡 Reveal Correct Answer
+        <!-- LEFT COLUMN: Live Student Responses & Dynamic Matrix -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm order-2 md:order-1 flex flex-col justify-start">
+          <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-sm text-slate-900 tracking-tight">Live Responses</h3>
+              <span id="responseCountBadge" class="bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                0/0
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="toggleRevealCorrect()" id="btnRevealCorrect" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1 rounded-md border border-slate-300 transition shadow-sm">
+                Reveal Correct
               </button>
-              <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-[10px] bg-gray-200 hover:bg-gray-300 font-semibold px-2 py-1 rounded text-gray-700">
-                👁️ Reveal Responses
+              <button onclick="toggleRevealAll()" id="btnRevealAll" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1 rounded-md border border-slate-300 transition shadow-sm">
+                Reveal Responses
               </button>
-              <button onclick="toggleRevealDistribution()" id="btnToggleDist" class="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded" title="Toggle distribution chart visibility independently">
-                📊 Distribution: Auto
+              <button onclick="toggleRevealDistribution()" id="btnToggleDist" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1 rounded-md border border-slate-300 transition shadow-sm" title="Toggle distribution chart visibility independently">
+                Distribution: Auto
               </button>
-              <button onclick="resetCurrentQuestionResponses()" class="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2 py-1 rounded" title="Clear scanned responses for this question only">
-                🔄 Reset Q
+              <button onclick="resetCurrentQuestionResponses()" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-2.5 py-1 rounded-md border border-rose-200 transition shadow-sm" title="Clear scanned responses for this question only">
+                Reset
               </button>
             </div>
           </div>
           
-          <div id="completionBanner" class="hidden mb-2 p-2 bg-emerald-100 border border-emerald-400 text-emerald-800 font-bold text-xs rounded text-center animate-bounce">
-            🎉 All active students have submitted their answers!
+          <div id="completionBanner" class="hidden mb-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 font-semibold text-xs rounded-lg text-center">
+            All active students have submitted their responses.
           </div>
 
-          <!-- RESPONSE DISTRIBUTION MATRIX (HIDDEN BY DEFAULT UNTIL REVEALED TO PREVENT HINTS) -->
-          <div class="mb-3 p-2 bg-gray-50 border rounded-lg">
-            <div class="text-[11px] font-bold text-gray-600 mb-1.5 flex justify-between items-center">
-              <div class="flex items-center gap-1">
+          <!-- RESPONSE DISTRIBUTION MATRIX (HIDDEN BY DEFAULT UNTIL REVEALED) -->
+          <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <div class="text-xs font-semibold text-slate-700 mb-2 flex justify-between items-center">
+              <div class="flex items-center gap-2">
                 <span>Answer Distribution</span>
-                <span id="distStatusBadge" class="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-bold">🔒 Hidden</span>
+                <span id="distStatusBadge" class="text-[10px] text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded font-semibold">Hidden</span>
               </div>
-              <span id="totalRespondedPct" class="text-blue-600 font-extrabold">0% Responded</span>
+              <span id="totalRespondedPct" class="text-slate-900 font-bold">0% Responded</span>
             </div>
             
-            <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-bold mb-1.5">
-              <div class="p-1.5 bg-blue-50 border border-blue-200 rounded">
-                <span class="text-blue-700">A: </span><span id="distCountA">?</span>
+            <div class="grid grid-cols-4 gap-2 text-center text-xs font-bold mb-2">
+              <div class="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
+                <span class="text-blue-700">A: </span><span id="distCountA" class="text-slate-800">?</span>
               </div>
-              <div class="p-1.5 bg-emerald-50 border border-emerald-200 rounded">
-                <span class="text-emerald-700">B: </span><span id="distCountB">?</span>
+              <div class="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
+                <span class="text-emerald-700">B: </span><span id="distCountB" class="text-slate-800">?</span>
               </div>
-              <div class="p-1.5 bg-amber-50 border border-amber-200 rounded">
-                <span class="text-amber-700">C: </span><span id="distCountC">?</span>
+              <div class="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
+                <span class="text-amber-700">C: </span><span id="distCountC" class="text-slate-800">?</span>
               </div>
-              <div class="p-1.5 bg-rose-50 border border-rose-200 rounded">
-                <span class="text-rose-700">D: </span><span id="distCountD">?</span>
+              <div class="p-2 bg-white border border-slate-200 rounded-md shadow-sm">
+                <span class="text-rose-700">D: </span><span id="distCountD" class="text-slate-800">?</span>
               </div>
             </div>
             
             <!-- Progress Bar -->
-            <div class="w-full bg-gray-200 rounded-full h-2 flex overflow-hidden">
-              <div id="barHiddenTotal" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+            <div class="w-full bg-slate-200 rounded-full h-2 flex overflow-hidden">
+              <div id="barHiddenTotal" class="bg-slate-400 h-full transition-all duration-300" style="width: 0%"></div>
               <div id="barA" class="bg-blue-600 h-full transition-all duration-300" style="width: 0%"></div>
               <div id="barB" class="bg-emerald-600 h-full transition-all duration-300" style="width: 0%"></div>
               <div id="barC" class="bg-amber-500 h-full transition-all duration-300" style="width: 0%"></div>
@@ -126,98 +148,111 @@
             </div>
           </div>
 
-          <!-- PARALLEL LIST: CARDS PENDING SCAN -->
-          <div class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-            <div class="text-[11px] font-bold text-amber-800 mb-1">
-              ⏳ Pending Active Cards (<span id="pendingCount">0</span>):
+          <!-- PENDING ACTIVE CARDS LIST -->
+          <div class="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <div class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+              <span>Pending Cards:</span>
+              <span class="font-bold text-slate-800" id="pendingCount">0</span>
             </div>
-            <div id="pendingCardsList" class="text-xs text-amber-900 font-mono font-bold flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+            <div id="pendingCardsList" class="text-xs font-mono font-medium flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
               <!-- Dynamically populated -->
             </div>
           </div>
 
           <!-- SCANNED RESPONSES LIST (WITH INSTANT INLINE ANSWER OVERRIDE) -->
-          <div class="flex justify-between items-center mb-1 text-[11px] font-bold text-gray-500">
+          <div class="flex justify-between items-center mb-1.5 text-xs font-semibold text-slate-600">
             <span>Scanned Responses:</span>
-            <span class="text-[10px] text-gray-400 font-normal">Click any student's answer to change it</span>
+            <span class="text-[11px] text-slate-400 font-normal">Click any answer to edit</span>
           </div>
-          <ul id="scanLog" class="text-xs text-gray-600 space-y-1.5 overflow-y-auto max-h-[350px]"></ul>
+          <ul id="scanLog" class="text-xs text-slate-700 space-y-2 overflow-y-auto max-h-[360px]"></ul>
         </div>
 
-        <!-- RIGHT HALF: Question Selectors, Classroom Display & Camera -->
-        <div class="bg-white p-4 rounded-lg shadow-md border order-1 md:order-2">
+        <!-- RIGHT COLUMN: Question Selectors, Classroom Display & Camera -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm order-1 md:order-2 flex flex-col justify-start">
           
-          <!-- SINGLE FOLDER & QUESTION CONTROLS -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+          <!-- FOLDER & QUESTION CONTROLS -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
-              <label class="block text-xs font-semibold text-gray-600 mb-1">Select Folder:</label>
-              <select id="singleFolderSelect" onchange="onFolderSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Folder:</label>
+              <select id="singleFolderSelect" onchange="onFolderSelectChange()" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900 focus:border-slate-900 shadow-sm">
                 <option value="">-- Select Folder --</option>
               </select>
             </div>
             
             <div>
               <div class="flex justify-between items-center mb-1">
-                <label class="block text-xs font-semibold text-gray-600">Select Question:</label>
-                <button onclick="shuffleQuestions()" class="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded font-bold">
-                  🔀 Shuffle Order
+                <label class="block text-xs font-semibold text-slate-700">Question:</label>
+                <button onclick="shuffleQuestions()" class="text-xs text-slate-600 hover:text-slate-900 font-medium transition" title="Randomize question sequence">
+                  Shuffle
                 </button>
               </div>
-              <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-gray-300 rounded text-xs bg-white font-medium"></select>
+              <select id="questionSelect" onchange="onQuestionSelectChange()" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900 focus:border-slate-900 shadow-sm"></select>
             </div>
           </div>
 
-          <!-- CLASSROOM DISPLAY BOX (WITH DIRECT EDIT QUESTION BUTTON) -->
-          <div id="questionDisplayBox" class="mb-3 p-4 bg-gray-900 border-2 border-blue-500 rounded-xl shadow-lg text-white relative">
-            <button onclick="openEditModalForActiveQuestion()" class="absolute top-2 right-2 text-[10px] bg-blue-700 hover:bg-blue-600 text-white font-bold px-2 py-0.5 rounded shadow transition" title="Edit this question">
-              ✏️ Edit
+          <!-- CLASSROOM PROJECTOR DISPLAY BOX -->
+          <div id="questionDisplayBox" class="mb-4 p-5 bg-slate-950 border border-slate-800 rounded-xl shadow-xl text-white relative">
+            <button onclick="openEditModalForActiveQuestion()" class="absolute top-3 right-3 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium px-2.5 py-1 rounded-md shadow-sm transition" title="Edit this question">
+              Edit
             </button>
-            <div id="dispQText" class="font-extrabold text-lg md:text-xl text-yellow-300 mb-3 leading-snug text-center cursor-pointer" onclick="openEditModalForActiveQuestion()" title="Click to edit question">
+            <div id="dispQText" class="font-semibold text-lg md:text-xl text-slate-100 mb-4 leading-snug text-center cursor-pointer hover:text-white transition" onclick="openEditModalForActiveQuestion()" title="Click to edit question">
               Select a question to display...
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-bold">
-              <div id="dispOptA" class="p-2.5 bg-blue-700 rounded-lg text-white shadow transition-all">A: -</div>
-              <div id="dispOptB" class="p-2.5 bg-emerald-700 rounded-lg text-white shadow transition-all">B: -</div>
-              <div id="dispOptC" class="p-2.5 bg-amber-600 rounded-lg text-white shadow transition-all">C: -</div>
-              <div id="dispOptD" class="p-2.5 bg-rose-700 rounded-lg text-white shadow transition-all">D: -</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-medium">
+              <div id="dispOptA" class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 shadow-sm transition-all flex items-start gap-2">
+                <span class="w-5 h-5 rounded bg-blue-900 text-blue-200 text-xs font-bold flex items-center justify-center flex-shrink-0">A</span>
+                <span class="opt-text">-</span>
+              </div>
+              <div id="dispOptB" class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 shadow-sm transition-all flex items-start gap-2">
+                <span class="w-5 h-5 rounded bg-emerald-900 text-emerald-200 text-xs font-bold flex items-center justify-center flex-shrink-0">B</span>
+                <span class="opt-text">-</span>
+              </div>
+              <div id="dispOptC" class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 shadow-sm transition-all flex items-start gap-2">
+                <span class="w-5 h-5 rounded bg-amber-900 text-amber-200 text-xs font-bold flex items-center justify-center flex-shrink-0">C</span>
+                <span class="opt-text">-</span>
+              </div>
+              <div id="dispOptD" class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-100 shadow-sm transition-all flex items-start gap-2">
+                <span class="w-5 h-5 rounded bg-rose-900 text-rose-200 text-xs font-bold flex items-center justify-center flex-shrink-0">D</span>
+                <span class="opt-text">-</span>
+              </div>
             </div>
-            <div id="explanationBox" class="hidden mt-3 p-2 bg-yellow-900/60 border border-yellow-500 rounded text-xs text-yellow-200 leading-normal">
-              <span class="font-bold">💡 Explanation:</span> <span id="dispExplanation">-</span>
+            <div id="explanationBox" class="hidden mt-3 p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 leading-relaxed">
+              <span class="font-bold text-slate-200">Explanation:</span> <span id="dispExplanation">-</span>
             </div>
           </div>
 
-          <!-- Camera Controls, Quality Selector & Flip Toggle -->
-          <div class="mb-3 flex flex-wrap items-center gap-1.5">
-            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-1.5 px-2.5 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[85px]">
-              ▶️ Start Camera
+          <!-- Camera Controls, Quality Selector & Sound Toggle -->
+          <div class="mb-4 flex flex-wrap items-center gap-2">
+            <button onclick="startScanner()" class="flex-1 py-2 px-3 rounded-lg font-semibold text-xs bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm transition text-center">
+              Start Camera
             </button>
-            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-1.5 px-2.5 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[85px]">
-              ⏹️ Stop Camera
+            <button onclick="stopScanner()" class="flex-1 py-2 px-3 rounded-lg font-semibold text-xs bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition text-center">
+              Stop Camera
             </button>
-            <!-- Quality dropdown: Defaults to 720p as requested -->
-            <select id="cameraResSelect" onchange="changeCameraResolution(this.value)" class="py-1.5 px-2 bg-white border border-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm" title="Camera Quality Setting">
-              <option value="720p" selected>🎥 720p HD (Default)</option>
-              <option value="1080p">🎥 1080p Full HD</option>
-              <option value="4k">🎥 4K Ultra HD</option>
-              <option value="max">🎥 Max Available</option>
+            <!-- Quality dropdown: Defaults to 720p HD -->
+            <select id="cameraResSelect" onchange="changeCameraResolution(this.value)" class="py-2 px-3 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 shadow-sm focus:ring-1 focus:ring-slate-900" title="Camera Quality Setting">
+              <option value="720p" selected>720p HD</option>
+              <option value="1080p">1080p Full HD</option>
+              <option value="4k">4K Ultra HD</option>
+              <option value="max">Max Available</option>
             </select>
-            <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm" title="Toggle audio feedback on scan">
-              🔔 Beep: ON
+            <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 shadow-sm transition" title="Toggle audio feedback on scan">
+              Sound: ON
             </button>
           </div>
 
-          <!-- SCANNER CONTAINER -->
-          <div class="relative w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-gray-700" style="min-height: 250px;">
+          <!-- SCANNER VIEWPORT -->
+          <div class="relative w-full bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-inner" style="min-height: 260px;">
             <video id="webcam-video" class="hidden" playsinline></video>
             <canvas id="qr-canvas" class="w-full h-full object-cover"></canvas>
             
             <!-- Live Camera Resolution Badge -->
-            <div id="cameraResBadge" class="hidden absolute top-2 left-2 bg-gray-900/80 backdrop-blur border border-gray-600 text-blue-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
-              📷 720p HD
+            <div id="cameraResBadge" class="hidden absolute top-2.5 left-2.5 bg-slate-900/90 backdrop-blur border border-slate-700 text-slate-300 text-[10px] font-mono font-semibold px-2 py-0.5 rounded shadow">
+              720p HD
             </div>
 
-            <div id="scanIndicator" class="hidden absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-extrabold px-2 py-1 rounded shadow animate-pulse">
-              ✓ Scan Registered
+            <div id="scanIndicator" class="hidden absolute top-2.5 right-2.5 bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow">
+              Scan Registered
             </div>
           </div>
 
@@ -226,278 +261,233 @@
       </div>
     </div>
 
+    <!-- ===================================================================== -->
     <!-- TAB 2: RESULTS & RANKINGS -->
-    <div id="tab-history" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+    <!-- ===================================================================== -->
+    <div id="tab-history" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 hidden">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-2 pb-3 border-b border-slate-100">
         <div>
-          <h2 class="text-md font-bold text-gray-800">Class Performance & Rankings</h2>
-          <p class="text-xs text-gray-500">Live updated scores across all active sessions. Click any score or response to edit.</p>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight">Performance & Reports</h2>
+          <p class="text-xs text-slate-500">Live updated scores across student sessions.</p>
         </div>
         <div class="flex space-x-2">
-          <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">📥 Export CSV</button>
-          <button onclick="clearHistory()" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded text-xs font-semibold shadow transition">Clear History</button>
+          <button onclick="exportToCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition">
+            Export CSV
+          </button>
+          <button onclick="clearHistory()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+            Clear History
+          </button>
         </div>
       </div>
       
-      <div id="historyStats" class="grid grid-cols-3 gap-2 mb-4 text-center text-xs">
-        <div class="p-2 bg-blue-50 border border-blue-200 rounded">
-          <div class="text-gray-500 font-semibold">Total Scans</div>
-          <div id="statTotalScans" class="text-base font-bold text-blue-700">0</div>
+      <div id="historyStats" class="grid grid-cols-3 gap-3 mb-5 text-center text-xs">
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <div class="text-slate-500 font-medium mb-1">Total Scans</div>
+          <div id="statTotalScans" class="text-xl font-bold text-slate-900">0</div>
         </div>
-        <div class="p-2 bg-green-50 border border-green-200 rounded">
-          <div class="text-gray-500 font-semibold">Correct</div>
-          <div id="statCorrectScans" class="text-base font-bold text-green-700">0</div>
+        <div class="p-3 bg-emerald-50/60 border border-emerald-200 rounded-lg">
+          <div class="text-emerald-700 font-medium mb-1">Correct Responses</div>
+          <div id="statCorrectScans" class="text-xl font-bold text-emerald-800">0</div>
         </div>
-        <div class="p-2 bg-purple-50 border border-purple-200 rounded">
-          <div class="text-gray-500 font-semibold">Accuracy</div>
-          <div id="statAccuracy" class="text-base font-bold text-purple-700">0%</div>
+        <div class="p-3 bg-blue-50/60 border border-blue-200 rounded-lg">
+          <div class="text-blue-700 font-medium mb-1">Class Accuracy</div>
+          <div id="statAccuracy" class="text-xl font-bold text-blue-900">0%</div>
         </div>
       </div>
 
       <div class="overflow-x-auto mb-6">
-        <h3 class="font-bold text-xs text-gray-700 mb-2">Student Cumulative Scores</h3>
-        <table class="w-full text-left text-xs border-collapse">
+        <h3 class="font-bold text-xs text-slate-800 mb-2">Student Cumulative Scores</h3>
+        <table class="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
           <thead>
-            <tr class="bg-gray-100 text-gray-700 border-b">
-              <th class="p-2">Rank</th>
-              <th class="p-2">Card / Student</th>
-              <th class="p-2">Attempted</th>
-              <th class="p-2">Correct</th>
-              <th class="p-2">Score (%)</th>
+            <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase tracking-wider text-[11px]">
+              <th class="p-2.5">Rank</th>
+              <th class="p-2.5">Student / Card</th>
+              <th class="p-2.5">Attempted</th>
+              <th class="p-2.5">Correct</th>
+              <th class="p-2.5">Score</th>
             </tr>
           </thead>
-          <tbody id="studentScoreTable" class="divide-y text-gray-600"></tbody>
+          <tbody id="studentScoreTable" class="divide-y divide-slate-100 text-slate-700"></tbody>
         </table>
       </div>
 
       <div class="overflow-x-auto">
-        <h3 class="font-bold text-xs text-gray-700 mb-2">Detailed Response Logs (Editable)</h3>
-        <table class="w-full text-left text-xs border-collapse">
+        <h3 class="font-bold text-xs text-slate-800 mb-2">Detailed Response Logs</h3>
+        <table class="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
           <thead>
-            <tr class="bg-gray-100 text-gray-700 border-b">
-              <th class="p-2">Q#</th>
-              <th class="p-2">Card / Student</th>
-              <th class="p-2">Scanned Answer</th>
-              <th class="p-2">Status</th>
-              <th class="p-2">Action</th>
+            <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase tracking-wider text-[11px]">
+              <th class="p-2.5">Question</th>
+              <th class="p-2.5">Student / Card</th>
+              <th class="p-2.5">Scanned Answer</th>
+              <th class="p-2.5">Status</th>
+              <th class="p-2.5">Action</th>
             </tr>
           </thead>
-          <tbody id="editableLogsTable" class="divide-y text-gray-600"></tbody>
+          <tbody id="editableLogsTable" class="divide-y divide-slate-100 text-slate-700"></tbody>
         </table>
       </div>
     </div>
 
-    <!-- TAB 3: QUESTION & FOLDER MANAGEMENT -->
-    <div id="tab-bulk" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <div class="flex justify-between items-center mb-3 flex-wrap gap-2 border-b pb-2">
+    <!-- ===================================================================== -->
+    <!-- TAB 3: QUESTION & FOLDER MANAGEMENT (MANUAL SINGLE & BULK ENTRY) -->
+    <!-- ===================================================================== -->
+    <div id="tab-bulk" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 hidden">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-2 pb-3 border-b border-slate-100">
         <div>
-          <h2 class="text-md font-bold text-gray-800 flex items-center gap-2">
-            <span>Question Management & Creator</span>
-            <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-extrabold">AI & Doc Upload</span>
-          </h2>
-          <p class="text-xs text-gray-500">Create quizzes automatically from topics, upload PDF/Word files, or paste manual bulk text.</p>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight">Question Management</h2>
+          <p class="text-xs text-slate-500">Add questions individually, import in bulk, or organize into folders.</p>
         </div>
-        <div class="flex items-center gap-1.5">
-          <button onclick="openApiKeyModal()" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded font-bold flex items-center gap-1 shadow-sm transition">
-            🔑 <span id="apiKeyBtnLabel">Gemini API Key</span>
-          </button>
-          <button onclick="loadDemoQuestions()" class="text-xs bg-purple-100 hover:bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold shadow-sm transition">
-            ✨ Pre-fill Demo
+        <div class="flex items-center gap-2">
+          <button onclick="loadDemoQuestions()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-1.5 rounded-lg font-semibold shadow-sm transition">
+            Load Sample Questions
           </button>
         </div>
       </div>
 
       <!-- CREATION METHOD TOGGLES -->
-      <div class="flex border-b mb-3 text-xs font-bold">
-        <button id="btnSubtabAi" onclick="switchQuestionSubtab('ai')" class="py-2 px-3 border-b-2 border-blue-600 text-blue-600 transition flex items-center gap-1">
-          <span>✨ Automatic Creator (Topic or Document Upload)</span>
+      <div class="flex border-b border-slate-200 mb-4 text-xs font-semibold">
+        <button id="btnTabSingle" onclick="switchQuestionMode('single')" class="py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 transition">
+          Add Single Question
         </button>
-        <button id="btnSubtabManual" onclick="switchQuestionSubtab('manual')" class="py-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition flex items-center gap-1">
-          <span>📝 Manual Bulk Text</span>
+        <button id="btnTabBulk" onclick="switchQuestionMode('bulk')" class="py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
+          Bulk Import
         </button>
       </div>
 
-      <!-- SUBTAB 1: AI & DOCUMENT CREATOR -->
-      <div id="subtab-ai-content" class="mb-4">
-        <div class="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border border-blue-200 rounded-xl p-3.5 mb-3 shadow-sm">
+      <!-- MODE 1: SINGLE QUESTION FORM -->
+      <div id="panel-single-question" class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl">
+        <div class="space-y-3">
           
-          <!-- SOURCE MODE TABS: TOPIC VS FILE UPLOAD -->
-          <div class="flex gap-2 mb-3">
-            <button id="btnAiModeTopic" onclick="setAiInputMode('topic')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold shadow-sm bg-blue-600 text-white transition flex items-center justify-center gap-1.5">
-              <span>✍️ Generate from Topic Name</span>
-            </button>
-            <button id="btnAiModeDoc" onclick="setAiInputMode('doc')" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold bg-white text-gray-700 border hover:bg-gray-50 transition flex items-center justify-center gap-1.5">
-              <span>📄 Upload Document (.pdf, .docx, .doc, .txt)</span>
-            </button>
-          </div>
-
-          <!-- TOPIC INPUT AREA -->
-          <div id="aiTopicArea" class="mb-3 space-y-2">
-            <div>
-              <label class="block text-xs font-bold text-gray-700 mb-1">
-                Topic / Subject Name: <span class="text-rose-500">*</span>
-              </label>
-              <input type="text" id="aiTopicInput" class="w-full p-2 border border-gray-300 rounded-md text-xs bg-white focus:ring-2 focus:ring-blue-500" placeholder="e.g. Present Perfect Continuous, Newton's 3 Laws of Motion, World War II Causes">
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-gray-600 mb-0.5">
-                Specific Context or Teacher Instructions (Optional):
-              </label>
-              <input type="text" id="aiTopicContext" class="w-full p-1.5 border border-gray-300 rounded-md text-xs bg-white" placeholder="e.g. Focus on irregular verbs, school grade 7-9 level, practical examples">
-            </div>
-          </div>
-
-          <!-- DOCUMENT UPLOAD AREA -->
-          <div id="aiDocArea" class="mb-3 hidden">
-            <label class="block text-xs font-bold text-gray-700 mb-1">
-              Upload Lesson Material or Quiz File:
-            </label>
-            <div id="docDropZone" onclick="document.getElementById('docFileInput').click()" class="border-2 border-dashed border-blue-300 hover:border-blue-500 bg-white rounded-lg p-4 text-center cursor-pointer transition">
-              <input type="file" id="docFileInput" accept=".pdf,.docx,.doc,.txt" onchange="handleDocFileUpload(event)" class="hidden">
-              <div class="text-2xl mb-1">📁</div>
-              <div class="text-xs font-bold text-gray-700">Click to upload or drag & drop a file</div>
-              <div class="text-[11px] text-gray-500">Supports PDF (.pdf), Word (.docx, .doc), and Text files (.txt)</div>
-            </div>
-
-            <!-- Uploaded file info & text preview -->
-            <div id="docExtractStatus" class="hidden mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-800 flex justify-between items-center">
-              <div>
-                <span class="font-bold" id="docFileNameLabel"></span>
-                <span class="text-[11px] text-emerald-600 ml-1" id="docStatsLabel"></span>
-              </div>
-              <button onclick="toggleDocPreview()" class="text-[11px] font-bold text-emerald-700 underline">Preview Text</button>
-            </div>
-            <div id="docPreviewBox" class="hidden mt-2 p-2 bg-gray-50 border rounded text-[11px] font-mono max-h-32 overflow-y-auto text-gray-700 whitespace-pre-wrap"></div>
-          </div>
-
-          <!-- CONFIGURATION PARAMETERS (User chosen) -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 bg-white p-2.5 rounded-lg border">
-            <div>
-              <label class="block text-[11px] font-bold text-gray-700 mb-1">Number of Questions:</label>
-              <input type="number" id="aiNumQuestions" min="1" max="50" value="5" class="w-full p-1.5 border rounded text-xs font-bold text-gray-800 bg-white" placeholder="e.g. 5">
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold text-gray-700 mb-1">Options Available:</label>
-              <select id="aiNumOptions" class="w-full p-1.5 border rounded text-xs bg-white font-bold text-gray-800">
-                <option value="4" selected>4 Options (A, B, C, D)</option>
-                <option value="3">3 Options (A, B, C)</option>
-                <option value="2">2 Options (A, B - True/False)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold text-gray-700 mb-1">Level of Complexity:</label>
-              <select id="aiComplexity" class="w-full p-1.5 border rounded text-xs bg-white font-bold text-gray-800">
-                <option value="Easy">🟢 Easy / Elementary</option>
-                <option value="Medium" selected>🟡 Medium / Intermediate</option>
-                <option value="Hard">🔴 Hard / Advanced</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold text-gray-700 mb-1">Target Folder:</label>
-              <select id="aiFolderSelect" onchange="onAiFolderSelectChange()" class="w-full p-1.5 border rounded text-xs font-bold text-gray-800 bg-white">
+          <!-- Folder Select / Create -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder:</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select id="singleQFolderSelect" onchange="onSingleQFolderChange()" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900">
                 <option value="General">General</option>
-                <option value="__new__">➕ Create New Folder...</option>
+                <option value="__new__">+ Create New Folder...</option>
               </select>
-              <input type="text" id="aiNewFolderInput" class="hidden w-full mt-1.5 p-1.5 border border-blue-400 rounded text-xs font-bold text-gray-800 bg-white shadow-sm" placeholder="Enter new folder name...">
+              <input type="text" id="singleQNewFolderInput" class="hidden w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900" placeholder="Type new folder name...">
             </div>
           </div>
 
-          <!-- GENERATE BUTTON & STATUS -->
-          <button onclick="startAiGeneration()" id="btnGenerateAi" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 text-xs">
-            <span>✨ Generate Questions Automatically</span>
-          </button>
-          
-          <div id="aiLoadingStatus" class="hidden mt-2 p-2.5 bg-blue-100 border border-blue-300 rounded-lg text-xs font-bold text-blue-900 flex items-center justify-center gap-2 animate-pulse">
-            <span class="animate-spin">⚙️</span>
-            <span id="aiLoadingMsg">Generating questions with Gemini AI...</span>
+          <!-- Question Text -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Question Text: <span class="text-rose-500">*</span></label>
+            <textarea id="singleQText" rows="2" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Enter question prompt..."></textarea>
           </div>
-        </div>
 
-        <!-- GENERATED QUESTIONS PREVIEW & REVIEW LIST -->
-        <div id="aiGeneratedReviewBox" class="hidden border-2 border-indigo-200 rounded-xl p-3.5 bg-indigo-50/40 mb-4">
-          <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+          <!-- Choices A, B, C, D -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <h3 class="font-extrabold text-sm text-indigo-900 flex items-center gap-1.5">
-                <span>📋 Generated Questions Review</span>
-                <span id="aiReviewCountBadge" class="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">0 Questions</span>
-              </h3>
-              <p class="text-[11px] text-gray-600">Review, edit, or adjust questions and answers below before adding them to your folder.</p>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Option A: <span class="text-rose-500">*</span></label>
+              <input type="text" id="singleQOptA" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice A">
             </div>
-            <div class="flex gap-1.5">
-              <button onclick="addBlankGeneratedQuestion()" class="text-xs bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 font-bold px-2 py-1 rounded">
-                ➕ Add Question
-              </button>
-              <button onclick="saveAllGeneratedQuestions()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1 rounded shadow">
-                📥 Save All to Folder
-              </button>
-              <button onclick="discardGeneratedQuestions()" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-2 py-1 rounded">
-                Discard
-              </button>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Option B: <span class="text-rose-500">*</span></label>
+              <input type="text" id="singleQOptB" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice B">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Option C (Optional):</label>
+              <input type="text" id="singleQOptC" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice C">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Option D (Optional):</label>
+              <input type="text" id="singleQOptD" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice D">
             </div>
           </div>
 
-          <div id="aiGeneratedItemsList" class="space-y-3"></div>
+          <!-- Correct Key & Explanation -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Correct Answer: <span class="text-rose-500">*</span></label>
+              <select id="singleQCorrect" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-bold focus:ring-1 focus:ring-slate-900">
+                <option value="A">Option A</option>
+                <option value="B">Option B</option>
+                <option value="C">Option C</option>
+                <option value="D">Option D</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Explanation (Optional):</label>
+              <input type="text" id="singleQExplanation" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Helpful explanation or hint for students">
+            </div>
+          </div>
 
-          <div class="mt-3 pt-2 border-t flex justify-end">
-            <button onclick="saveAllGeneratedQuestions()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2 rounded-lg text-xs shadow-md">
-              📥 Save All (<span id="aiReviewCountBottom">0</span>) Questions to Folder
+          <div class="pt-2">
+            <button onclick="submitSingleQuestion()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-sm transition">
+              Save Question
             </button>
           </div>
         </div>
       </div>
 
-      <!-- SUBTAB 2: MANUAL BULK TEXT -->
-      <div id="subtab-manual-content" class="mb-4 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <!-- MODE 2: BULK IMPORT FORM -->
+      <div id="panel-bulk-question" class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl hidden">
+        <div class="space-y-3">
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Target Folder Name:</label>
-            <input type="text" id="targetFolderInput" class="w-full p-2 border border-gray-300 rounded text-xs" value="Present Simple" placeholder="e.g. Grammar Unit 1">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder Name:</label>
+            <input type="text" id="targetFolderInput" class="w-full sm:w-1/2 p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900" value="English Grammar" placeholder="e.g. Unit 1 Grammar">
           </div>
+
           <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Search Loaded Questions:</label>
-            <input type="text" id="searchQuestionInput" onkeyup="renderFolderManagement()" class="w-full p-2 border border-gray-300 rounded text-xs" placeholder="Search by text or folder...">
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-bold text-slate-700">
+                Bulk Paste Area:
+              </label>
+              <span class="text-[11px] text-slate-500 font-mono">Format: Question | A | B | C | D | Correct | Explanation</span>
+            </div>
+            <textarea id="bulkInput" rows="6" class="w-full p-2.5 border border-slate-300 rounded-lg font-mono text-xs bg-white focus:ring-1 focus:ring-slate-900 leading-relaxed" placeholder="She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
           </div>
-        </div>
 
-        <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">
-            Bulk Format: <code>Question | A | B | C | D | Correct | Explanation</code>
-          </label>
-          <textarea id="bulkInput" rows="5" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs" placeholder="She ___ to school. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple."></textarea>
+          <button onclick="submitBulk()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-sm transition">
+            Import Bulk Questions
+          </button>
         </div>
-
-        <button onclick="submitBulk()" class="mb-3 w-full bg-blue-600 text-white py-2 rounded-md font-semibold text-xs hover:bg-blue-700 transition">Upload Questions to Folder</button>
       </div>
 
-      <hr class="my-4">
-      <h3 class="text-xs font-bold text-gray-700 mb-2">Existing Folders & Questions (Click on any question to edit)</h3>
-      <div id="folderManageList" class="space-y-3 text-xs"></div>
+      <!-- FILTER & EXISTING QUESTIONS SECTION -->
+      <div class="pt-2 border-t border-slate-100">
+        <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Existing Folders & Questions
+          </h3>
+          <input type="text" id="searchQuestionInput" onkeyup="renderFolderManagement()" class="p-1.5 px-2.5 border border-slate-300 rounded-lg text-xs w-full sm:w-64 bg-white" placeholder="Filter questions by text or folder...">
+        </div>
+        
+        <div id="folderManageList" class="space-y-3 text-xs"></div>
+      </div>
     </div>
 
+    <!-- ===================================================================== -->
     <!-- TAB 4: GROUPS MANAGEMENT -->
-    <div id="tab-groups" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <h2 class="text-md font-bold text-gray-800 mb-3">Student Group Management</h2>
+    <!-- ===================================================================== -->
+    <div id="tab-groups" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 hidden">
+      <div class="mb-4 pb-3 border-b border-slate-100">
+        <h2 class="text-base font-bold text-slate-900 tracking-tight">Student Groups & Rosters</h2>
+        <p class="text-xs text-slate-500">Organize classes and associate student names with cards.</p>
+      </div>
       
       <!-- Group Selection & Creation -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div class="p-3 border rounded bg-gray-50">
-          <label class="block text-xs font-bold text-gray-700 mb-1">Select Active Group:</label>
+        <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Select Active Group:</label>
           <div class="flex space-x-2">
-            <select id="groupSelect" onchange="loadSelectedGroup()" class="flex-1 p-2 border rounded text-xs bg-white font-semibold">
+            <select id="groupSelect" onchange="loadSelectedGroup()" class="flex-1 p-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold">
               <option value="">-- No Group Selected --</option>
             </select>
-            <button onclick="deleteCurrentGroup()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-bold">Delete</button>
+            <button onclick="deleteCurrentGroup()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1 rounded-lg text-xs font-bold transition">
+              Delete
+            </button>
           </div>
         </div>
 
-        <div class="p-3 border rounded bg-gray-50">
-          <label class="block text-xs font-bold text-gray-700 mb-1">Create New Group:</label>
+        <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Create New Group:</label>
           <div class="flex space-x-2">
-            <input type="text" id="newGroupName" placeholder="Group Name (e.g., Grade 5A)" class="flex-1 p-2 border rounded text-xs">
-            <button onclick="createNewGroup()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-bold">Create</button>
+            <input type="text" id="newGroupName" placeholder="Group Name (e.g., Grade 7A)" class="flex-1 p-2 border border-slate-300 rounded-lg text-xs bg-white">
+            <button onclick="createNewGroup()" class="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-bold transition">
+              Create
+            </button>
           </div>
         </div>
       </div>
@@ -506,108 +496,115 @@
       <div id="groupActiveArea" class="hidden">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <!-- Bulk Add Students -->
-          <div class="p-3 border rounded bg-blue-50">
-            <h3 class="text-xs font-bold text-blue-800 mb-2">Bulk Add Student Names (Auto-assign Sequential Cards)</h3>
-            <textarea id="bulkStudentNames" rows="4" class="w-full p-2 border rounded text-xs mb-2 font-mono" placeholder="John Doe&#10;Jane Smith&#10;Alex Johnson"></textarea>
-            <button onclick="bulkAddStudentsToGroup()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-bold">Assign Cards & Save</button>
+          <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
+            <h3 class="text-xs font-bold text-slate-800 mb-1">Bulk Add Student Names</h3>
+            <p class="text-[11px] text-slate-500 mb-2">Sequential cards are automatically assigned.</p>
+            <textarea id="bulkStudentNames" rows="4" class="w-full p-2 border border-slate-300 rounded-lg text-xs mb-2 font-mono bg-white" placeholder="John Doe&#10;Jane Smith&#10;Alex Johnson"></textarea>
+            <button onclick="bulkAddStudentsToGroup()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-bold transition">
+              Assign Cards & Save Roster
+            </button>
           </div>
 
           <!-- Add Single Student with Card ID -->
-          <div class="p-3 border rounded bg-emerald-50">
-            <h3 class="text-xs font-bold text-emerald-800 mb-2">Add Individual Student to Group</h3>
+          <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
+            <h3 class="text-xs font-bold text-slate-800 mb-1">Add Individual Student</h3>
+            <p class="text-[11px] text-slate-500 mb-2">Assign specific card number directly.</p>
             <div class="space-y-2 text-xs">
               <div>
-                <label class="block font-semibold mb-0.5">Student Name:</label>
-                <input type="text" id="singleStudentName" placeholder="Student Name" class="w-full p-1.5 border rounded">
+                <label class="block font-semibold mb-0.5 text-slate-700">Student Name:</label>
+                <input type="text" id="singleStudentName" placeholder="Student Name" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
               </div>
               <div>
-                <label class="block font-semibold mb-0.5">Assigned Card Number:</label>
-                <input type="number" id="singleStudentCard" min="1" max="100" placeholder="Card #" class="w-full p-1.5 border rounded">
+                <label class="block font-semibold mb-0.5 text-slate-700">Assigned Card Number:</label>
+                <input type="number" id="singleStudentCard" min="1" max="100" placeholder="Card #" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
               </div>
-              <button onclick="addSingleStudentToGroup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded font-bold">Add Student to Group</button>
+              <button onclick="addSingleStudentToGroup()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg font-bold transition">
+                Add to Group
+              </button>
             </div>
           </div>
         </div>
 
-        <hr class="my-3">
-        <h3 class="text-xs font-bold text-gray-700 mb-2">Group Roster (<span id="activeGroupNameLabel"></span>)</h3>
+        <hr class="my-4 border-slate-200">
+        <h3 class="text-xs font-bold text-slate-800 mb-2">Group Roster (<span id="activeGroupNameLabel"></span>)</h3>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
             <thead>
-              <tr class="bg-gray-100 border-b">
-                <th class="p-2">Card #</th>
-                <th class="p-2">Student Name</th>
-                <th class="p-2">Action</th>
+              <tr class="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
+                <th class="p-2.5">Card #</th>
+                <th class="p-2.5">Student Name</th>
+                <th class="p-2.5">Action</th>
               </tr>
             </thead>
-            <tbody id="groupRosterTable" class="divide-y text-gray-700"></tbody>
+            <tbody id="groupRosterTable" class="divide-y divide-slate-100 text-slate-700"></tbody>
           </table>
         </div>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
     <!-- TAB 5: STUDENT CARDS -->
-    <div id="tab-cards" class="bg-white p-4 rounded-lg shadow-md mb-4 hidden">
-      <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+    <!-- ===================================================================== -->
+    <div id="tab-cards" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 hidden">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-2 pb-3 border-b border-slate-100">
         <div>
-          <h2 class="text-md font-bold text-gray-800 flex items-center gap-1.5">
-            <span>Student Cards</span>
-          </h2>
+          <h2 class="text-base font-bold text-slate-900 tracking-tight">Student Cards</h2>
+          <p class="text-xs text-slate-500">Standard Plickers cards: Option facing top is registered as answer.</p>
         </div>
         <div>
-          <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded shadow transition flex items-center gap-1">
-            🖨️ Print Active Cards
+          <button onclick="printActiveCards()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition">
+            Print Active Cards
           </button>
         </div>
       </div>
 
-      <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
+      <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3.5 max-h-[520px] overflow-y-auto p-1"></div>
     </div>
 
   </div>
 
   <!-- EDIT QUESTION MODAL -->
-  <div id="editQuestionModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
-    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center mb-3 border-b pb-2">
-        <h3 class="font-bold text-sm text-gray-800">✏️ Edit Question #<span id="editQIdLabel"></span></h3>
-        <button onclick="closeEditQuestionModal()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">&times;</button>
+  <div id="editQuestionModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto border border-slate-200">
+      <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+        <h3 class="font-bold text-sm text-slate-900">Edit Question #<span id="editQIdLabel"></span></h3>
+        <button onclick="closeEditQuestionModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
       </div>
 
       <input type="hidden" id="editQId">
       <input type="hidden" id="editQOldFolder">
 
-      <div class="space-y-2.5 text-xs">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-bold text-gray-700 mb-0.5">Folder Name:</label>
-          <input type="text" id="editQFolder" class="w-full p-1.5 border rounded">
+          <label class="block font-bold text-slate-700 mb-1">Folder Name:</label>
+          <input type="text" id="editQFolder" class="w-full p-2 border border-slate-300 rounded-lg">
         </div>
         <div>
-          <label class="block font-bold text-gray-700 mb-0.5">Question Text:</label>
-          <textarea id="editQText" rows="2" class="w-full p-1.5 border rounded"></textarea>
+          <label class="block font-bold text-slate-700 mb-1">Question Text:</label>
+          <textarea id="editQText" rows="2" class="w-full p-2 border border-slate-300 rounded-lg"></textarea>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-bold text-blue-700 mb-0.5">Option A:</label>
-            <input type="text" id="editQOptA" class="w-full p-1.5 border rounded">
+            <label class="block font-bold text-slate-700 mb-1">Option A:</label>
+            <input type="text" id="editQOptA" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-bold text-emerald-700 mb-0.5">Option B:</label>
-            <input type="text" id="editQOptB" class="w-full p-1.5 border rounded">
+            <label class="block font-bold text-slate-700 mb-1">Option B:</label>
+            <input type="text" id="editQOptB" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-bold text-amber-700 mb-0.5">Option C:</label>
-            <input type="text" id="editQOptC" class="w-full p-1.5 border rounded">
+            <label class="block font-bold text-slate-700 mb-1">Option C:</label>
+            <input type="text" id="editQOptC" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
           <div>
-            <label class="block font-bold text-rose-700 mb-0.5">Option D:</label>
-            <input type="text" id="editQOptD" class="w-full p-1.5 border rounded">
+            <label class="block font-bold text-slate-700 mb-1">Option D:</label>
+            <input type="text" id="editQOptD" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block font-bold text-purple-700 mb-0.5">Correct Answer:</label>
-            <select id="editQCorrect" class="w-full p-1.5 border rounded font-bold bg-white">
+            <label class="block font-bold text-slate-700 mb-1">Correct Answer:</label>
+            <select id="editQCorrect" class="w-full p-2 border border-slate-300 rounded-lg font-bold bg-white">
               <option value="A">A</option>
               <option value="B">B</option>
               <option value="C">C</option>
@@ -615,52 +612,19 @@
             </select>
           </div>
           <div>
-            <label class="block font-bold text-gray-700 mb-0.5">Explanation (Optional):</label>
-            <input type="text" id="editQExplanation" class="w-full p-1.5 border rounded">
+            <label class="block font-bold text-slate-700 mb-1">Explanation (Optional):</label>
+            <input type="text" id="editQExplanation" class="w-full p-2 border border-slate-300 rounded-lg">
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 mt-4 pt-2 border-t">
-        <button onclick="closeEditQuestionModal()" class="px-3 py-1.5 border rounded text-xs font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
-        <button onclick="saveEditedQuestion()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow">Save Changes</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- GEMINI API KEY MODAL -->
-  <div id="geminiApiKeyModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-4">
-      <div class="flex justify-between items-center mb-3 border-b pb-2">
-        <h3 class="font-bold text-sm text-gray-800 flex items-center gap-1.5">
-          <span>🔑 Google Gemini API Key</span>
-        </h3>
-        <button onclick="closeApiKeyModal()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">&times;</button>
-      </div>
-
-      <p class="text-xs text-gray-600 mb-3 leading-relaxed">
-        Power automatic question generation directly inside your browser using Google Gemini 2.5 Flash. 
-        It is <b>free</b> with generous quotas. Your key is stored securely in your browser's local storage and never leaves your device.
-      </p>
-
-      <div class="mb-3">
-        <label class="block text-xs font-bold text-gray-700 mb-1">Enter your Gemini API Key:</label>
-        <input type="password" id="geminiApiKeyInput" class="w-full p-2 border rounded text-xs font-mono" placeholder="AIzaSy...">
-      </div>
-
-      <div class="mb-4 p-2.5 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-800">
-        <div class="font-bold mb-0.5">Don't have an API key yet?</div>
-        <div>
-          Get one in 1 minute for free from 
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 font-bold underline">
-            Google AI Studio ↗️
-          </a>.
-        </div>
-      </div>
-
-      <div class="flex justify-end gap-2">
-        <button onclick="closeApiKeyModal()" class="px-3 py-1.5 border rounded text-xs font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
-        <button onclick="saveApiKeyFromModal()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow">Save Key</button>
+      <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+        <button onclick="closeEditQuestionModal()" class="px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+          Cancel
+        </button>
+        <button onclick="saveEditedQuestion()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-sm transition">
+          Save Changes
+        </button>
       </div>
     </div>
   </div>
@@ -668,6 +632,9 @@
   <!-- PRINT CONTAINER (ONLY VISIBLE ON PRINT) -->
   <div id="printArea" class="hidden"></div>
 
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <!-- ===================================================================== -->
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbz7Fm5O0k9B6iTTlo06mB3Osg5d0W9vbVK0dvd-Q41d2AFqEhKGAnpM3RWl99Ybd6DKaw/exec";
     let appData = { questions: [], folders: [], students: {}, studentList: [], logs: [], allLogs: [] };
@@ -713,7 +680,6 @@
 
     window.onload = function() { 
       currentGroupName = localStorage.getItem('plickers_active_group') || "";
-      updateApiKeyButtonUI();
       loadData(); 
       setInterval(syncState, 2500); 
     };
@@ -749,7 +715,7 @@
       return candidates[0].letter;
     }
 
-    // HIGH LOUD BEEP FOR SUCCESSFUL SCANNING
+    // AUDIBLE BEEP FOR SUCCESSFUL SCANNING
     function playBeepSound() {
       if (!audioEnabled) return;
       try {
@@ -768,15 +734,25 @@
 
     function toggleAudioBeep() {
       audioEnabled = !audioEnabled;
-      document.getElementById('btnAudioToggle').innerText = audioEnabled ? "🔔 Beep: ON" : "🔕 Beep: OFF";
+      document.getElementById('btnAudioToggle').innerText = audioEnabled ? "Sound: ON" : "Sound: OFF";
     }
 
     function switchTab(tab) {
-      document.getElementById('tab-scanner').classList.toggle('hidden', tab !== 'scanner');
-      document.getElementById('tab-history').classList.toggle('hidden', tab !== 'history');
-      document.getElementById('tab-bulk').classList.toggle('hidden', tab !== 'bulk');
-      document.getElementById('tab-groups').classList.toggle('hidden', tab !== 'groups');
-      document.getElementById('tab-cards').classList.toggle('hidden', tab !== 'cards');
+      const tabs = ['scanner', 'history', 'bulk', 'groups', 'cards'];
+      tabs.forEach(t => {
+        const tabEl = document.getElementById(`tab-${t}`);
+        if (tabEl) tabEl.classList.toggle('hidden', t !== tab);
+        
+        const navEl = document.getElementById(`nav-${t}`);
+        if (navEl) {
+          if (t === tab) {
+            navEl.className = "bg-slate-800 text-white px-3 py-1.5 rounded-md font-semibold text-xs shadow-sm ring-1 ring-slate-700/60 transition";
+          } else {
+            navEl.className = "text-slate-300 hover:text-white hover:bg-slate-800/60 px-3 py-1.5 rounded-md font-medium text-xs transition";
+          }
+        }
+      });
+
       if (tab === 'cards') renderStudentCards();
       if (tab === 'history') renderHistoryTab();
       if (tab === 'bulk') renderFolderManagement();
@@ -896,7 +872,51 @@
         select.value = folders[0];
         selectedFolder = folders[0];
       }
-      renderAiFolderSelect();
+      syncSingleQFolderDropdown();
+    }
+
+    function syncSingleQFolderDropdown() {
+      let select = document.getElementById('singleQFolderSelect');
+      if (!select) return;
+      let folders = appData.folders || [];
+      let currentVal = select.value || selectedFolder || "General";
+
+      select.innerHTML = '';
+      if (folders.length === 0) {
+        let optGen = document.createElement('option');
+        optGen.value = "General";
+        optGen.text = "General";
+        select.appendChild(optGen);
+      } else {
+        folders.forEach(f => {
+          let opt = document.createElement('option');
+          opt.value = f;
+          opt.text = f;
+          if (f === currentVal) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+
+      let newOpt = document.createElement('option');
+      newOpt.value = "__new__";
+      newOpt.text = "+ Create New Folder...";
+      if (currentVal === "__new__") newOpt.selected = true;
+      select.appendChild(newOpt);
+
+      onSingleQFolderChange();
+    }
+
+    function onSingleQFolderChange() {
+      let select = document.getElementById('singleQFolderSelect');
+      let input = document.getElementById('singleQNewFolderInput');
+      if (!select || !input) return;
+
+      if (select.value === '__new__') {
+        input.classList.remove('hidden');
+        input.focus();
+      } else {
+        input.classList.add('hidden');
+      }
     }
 
     function onFolderSelectChange() {
@@ -970,8 +990,8 @@
       
       revealAll = false;
       revealDistribution = false;
-      document.getElementById('btnRevealAll').innerText = "👁️ Reveal Responses";
-      document.getElementById('btnRevealCorrect').innerText = "💡 Reveal Correct Answer";
+      document.getElementById('btnRevealAll').innerText = "Reveal Responses";
+      document.getElementById('btnRevealCorrect').innerText = "Reveal Correct";
       updateDistributionVisibility();
 
       scannedCache.clear();
@@ -1020,19 +1040,28 @@
         let optC = document.getElementById('dispOptC');
         let optD = document.getElementById('dispOptD');
 
-        optA.innerHTML = `<b>A:</b> ${escapeHtml(q.a || '-')}`;
-        optB.innerHTML = `<b>B:</b> ${escapeHtml(q.b || '-')}`;
-        optC.innerHTML = `<b>C:</b> ${escapeHtml(q.c || '-')}`;
-        optD.innerHTML = `<b>D:</b> ${escapeHtml(q.d || '-')}`;
+        optA.querySelector('.opt-text').innerText = q.a || '-';
+        optB.querySelector('.opt-text').innerText = q.b || '-';
+        optC.querySelector('.opt-text').innerText = q.c || '-';
+        optD.querySelector('.opt-text').innerText = q.d || '-';
 
-        [optA, optB, optC, optD].forEach(el => el.classList.remove('ring-4', 'ring-yellow-400', 'scale-[1.02]'));
+        [optA, optB, optC, optD].forEach(el => {
+          el.classList.remove('ring-2', 'ring-emerald-500', 'bg-emerald-950/70', 'border-emerald-600');
+          el.classList.add('bg-slate-900', 'border-slate-800');
+        });
 
         if (revealCorrect) {
           let correctKey = (q.correct || 'A').toUpperCase().trim();
-          if (correctKey === 'A') optA.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
-          if (correctKey === 'B') optB.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
-          if (correctKey === 'C') optC.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
-          if (correctKey === 'D') optD.classList.add('ring-4', 'ring-yellow-400', 'scale-[1.02]');
+          let targetEl = null;
+          if (correctKey === 'A') targetEl = optA;
+          if (correctKey === 'B') targetEl = optB;
+          if (correctKey === 'C') targetEl = optC;
+          if (correctKey === 'D') targetEl = optD;
+
+          if (targetEl) {
+            targetEl.classList.remove('bg-slate-900', 'border-slate-800');
+            targetEl.classList.add('ring-2', 'ring-emerald-500', 'bg-emerald-950/70', 'border-emerald-600');
+          }
 
           if (q.explanation) {
             document.getElementById('dispExplanation').innerText = q.explanation;
@@ -1112,7 +1141,6 @@
         q.explanation = explanation;
       }
 
-      // If folder changed, update appData.folders if needed
       if (!appData.folders.includes(newFolder)) {
         appData.folders.push(newFolder);
       }
@@ -1225,7 +1253,7 @@
 
     function toggleRevealCorrect() {
       revealCorrect = !revealCorrect;
-      document.getElementById('btnRevealCorrect').innerText = revealCorrect ? "🙈 Hide Correct Answer" : "💡 Reveal Correct Answer";
+      document.getElementById('btnRevealCorrect').innerText = revealCorrect ? "Hide Correct" : "Reveal Correct";
       updateActiveQuestionUI(currentActiveQId);
     }
 
@@ -1240,7 +1268,7 @@
 
     function toggleRevealAll() {
       revealAll = !revealAll;
-      document.getElementById('btnRevealAll').innerText = revealAll ? "🔒 Hide Responses" : "👁️ Reveal Responses";
+      document.getElementById('btnRevealAll').innerText = revealAll ? "Hide Responses" : "Reveal Responses";
       updateDistributionVisibility();
       renderLogs(appData.logs);
     }
@@ -1257,14 +1285,14 @@
       let btnDist = document.getElementById('btnToggleDist');
 
       if (badge) {
-        badge.innerText = isVisible ? "👁️ Visible" : "🔒 Hidden";
+        badge.innerText = isVisible ? "Visible" : "Hidden";
         badge.className = isVisible 
-          ? "text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.2 rounded font-bold"
-          : "text-[10px] text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.2 rounded font-bold";
+          ? "text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded font-semibold"
+          : "text-[10px] text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.5 rounded font-semibold";
       }
 
       if (btnDist) {
-        btnDist.innerText = isVisible ? "📊 Distribution: ON" : "📊 Distribution: OFF";
+        btnDist.innerText = isVisible ? "Distribution: ON" : "Distribution: OFF";
       }
     }
 
@@ -1323,10 +1351,10 @@
       document.getElementById('pendingCount').innerText = pendingCards.length;
       
       if (pendingCards.length === 0) {
-        pendingContainer.innerHTML = '<span class="text-emerald-700 font-bold">All active cards scanned!</span>';
+        pendingContainer.innerHTML = '<span class="text-emerald-700 font-semibold">All active cards scanned.</span>';
       } else {
         pendingContainer.innerHTML = pendingCards.map(s => 
-          `<span class="bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shadow-sm" title="${escapeHtml(s.name)}">#${s.id}</span>`
+          `<span class="bg-slate-100 border border-slate-300 text-slate-800 px-2 py-0.5 rounded shadow-sm" title="${escapeHtml(s.name)}">#${s.id}</span>`
         ).join('');
       }
 
@@ -1376,7 +1404,7 @@
       }
 
       if (!validLogs || validLogs.length === 0) {
-        logUl.innerHTML = '<li class="text-gray-400 italic p-2 border rounded bg-gray-50 text-center">No responses scanned yet for this question.</li>';
+        logUl.innerHTML = '<li class="text-slate-400 italic p-3 border border-slate-200 rounded-lg bg-slate-50 text-center">No responses scanned yet for this question.</li>';
         return;
       }
 
@@ -1410,11 +1438,11 @@
         let sid = String(l.studentId);
         let isRevealed = revealAll || revealedStudents.has(sid);
         let isCorrect = l.isCorrect === 'Correct';
-        let rankLabel = revealAll ? `<span class="font-extrabold text-blue-700 mr-1.5">#${index + 1}</span>` : '';
+        let rankLabel = revealAll ? `<span class="font-extrabold text-slate-900 mr-2">#${index + 1}</span>` : '';
 
         // Editable answer selector in scanner list
         let answerSelectHtml = `
-          <select onchange="overrideStudentScanAnswer('${sid}', this.value)" class="p-1 border rounded text-[11px] font-black bg-white shadow-sm cursor-pointer" title="Click to manually change student's answer">
+          <select onchange="overrideStudentScanAnswer('${sid}', this.value)" class="p-1 border border-slate-300 rounded text-xs font-bold bg-white shadow-sm cursor-pointer" title="Click to manually change student's answer">
             <option value="A" ${l.selectedAnswer === 'A' ? 'selected' : ''}>A</option>
             <option value="B" ${l.selectedAnswer === 'B' ? 'selected' : ''}>B</option>
             <option value="C" ${l.selectedAnswer === 'C' ? 'selected' : ''}>C</option>
@@ -1423,40 +1451,41 @@
         `;
 
         if (isRevealed) {
-          let bgClass = isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
-          let badgeClass = isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
+          let bgClass = isCorrect ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-rose-50/70 border-rose-200 text-rose-900';
+          let badgeClass = isCorrect ? 'bg-emerald-700 text-white' : 'bg-rose-700 text-white';
           
-          return `<li class="p-2 border rounded flex justify-between items-center ${bgClass}">
+          return `<li class="p-2.5 border rounded-lg flex justify-between items-center ${bgClass}">
             <div class="flex items-center">
               ${rankLabel}
               <div>
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <b>${escapeHtml(l.studentName)}</b> 
-                  <span class="text-[10px] text-gray-500 font-bold">(Card #${sid})</span>
-                  <span>selected:</span>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-bold">${escapeHtml(l.studentName)}</span> 
+                  <span class="text-[11px] text-slate-500 font-medium">(Card #${sid})</span>
+                  <span class="text-slate-600">Answer:</span>
                   ${answerSelectHtml}
                 </div>
-                <div class="text-[10px] text-gray-500 font-semibold mt-0.5">Overall Score: ${l.stats.correct}/${l.stats.total} correct (${l.stats.scorePct}%)</div>
+                <div class="text-[11px] text-slate-500 font-medium mt-0.5">Overall: ${l.stats.correct}/${l.stats.total} correct (${l.stats.scorePct}%)</div>
               </div>
             </div>
-            <div class="flex items-center space-x-1.5">
+            <div class="flex items-center space-x-2">
               <span class="text-[10px] px-2 py-0.5 rounded font-bold ${badgeClass}">${l.isCorrect}</span>
-              <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] text-gray-500 hover:underline">Hide</button>
+              <button onclick="toggleRevealSingle('${sid}')" class="text-xs text-slate-500 hover:text-slate-800 transition">Hide</button>
             </div>
           </li>`;
         } else {
-          return `<li class="p-2 border rounded flex justify-between items-center bg-blue-50 border-blue-200 text-blue-900">
+          return `<li class="p-2.5 border rounded-lg flex justify-between items-center bg-slate-50 border-slate-200 text-slate-800">
             <div>
               <div class="flex items-center gap-1.5">
-                <b>${escapeHtml(l.studentName)}</b> — Response Received 🔒
-                <span class="text-[10px] text-gray-400">(Card #${sid})</span>
+                <span class="font-bold">${escapeHtml(l.studentName)}</span>
+                <span class="text-[11px] text-slate-500">(Card #${sid})</span>
+                <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-medium">Recorded</span>
               </div>
-              <div class="text-[10px] text-blue-500 italic font-medium flex items-center gap-1 mt-0.5">
-                <span>🔒 Answer:</span>
+              <div class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                <span>Selected:</span>
                 ${answerSelectHtml}
               </div>
             </div>
-            <button onclick="toggleRevealSingle('${sid}')" class="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded font-medium">👁️ Reveal</button>
+            <button onclick="toggleRevealSingle('${sid}')" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-800 px-2.5 py-1 rounded font-semibold transition">Reveal</button>
           </li>`;
         }
       }).join('');
@@ -1510,17 +1539,12 @@
 
       let tbody = document.getElementById('studentScoreTable');
       tbody.innerHTML = sortedStudents.map((st) => {
-        let rankBadge = `#${st.rank}`;
-        if (st.rank === 1) rankBadge = '🥇 1st';
-        if (st.rank === 2) rankBadge = '🥈 2nd';
-        if (st.rank === 3) rankBadge = '🥉 3rd';
-
-        return `<tr class="border-b">
-          <td class="p-2 font-extrabold text-blue-700">${rankBadge}</td>
-          <td class="p-2 font-bold">${escapeHtml(st.name)}</td>
-          <td class="p-2">${st.total}</td>
-          <td class="p-2 text-green-600 font-bold">${st.correct}</td>
-          <td class="p-2 font-semibold">${st.pct}%</td>
+        return `<tr class="border-b border-slate-100 hover:bg-slate-50/50">
+          <td class="p-2.5 font-bold text-slate-800">#${st.rank}</td>
+          <td class="p-2.5 font-semibold">${escapeHtml(st.name)}</td>
+          <td class="p-2.5 text-slate-600">${st.total}</td>
+          <td class="p-2.5 text-emerald-700 font-bold">${st.correct}</td>
+          <td class="p-2.5 font-bold text-slate-900">${st.pct}%</td>
         </tr>`;
       }).join('');
 
@@ -1532,7 +1556,7 @@
       let logs = appData.allLogs || [];
 
       if (logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-2 text-gray-400 italic">No responses recorded to edit.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="p-3 text-slate-400 italic text-center">No responses recorded to edit.</td></tr>';
         return;
       }
 
@@ -1541,89 +1565,104 @@
         let name = getStudentNameById(sid);
         let isCorrect = l.isCorrect === 'Correct';
 
-        return `<tr class="border-b">
-          <td class="p-2 font-bold">Q#${escapeHtml(l.questionId)}</td>
-          <td class="p-2">${escapeHtml(name)}</td>
-          <td class="p-2 font-bold">
-            <select onchange="updateLogResponse(${index}, this.value)" class="p-1 border rounded text-xs bg-white">
+        return `<tr class="border-b border-slate-100 hover:bg-slate-50/50">
+          <td class="p-2.5 font-bold text-slate-900">Q#${escapeHtml(l.questionId)}</td>
+          <td class="p-2.5 font-medium">${escapeHtml(name)}</td>
+          <td class="p-2.5 font-bold">
+            <select onchange="updateLogResponse(${index}, this.value)" class="p-1 border border-slate-300 rounded text-xs bg-white">
               <option value="A" ${l.selectedAnswer === 'A' ? 'selected' : ''}>A</option>
               <option value="B" ${l.selectedAnswer === 'B' ? 'selected' : ''}>B</option>
               <option value="C" ${l.selectedAnswer === 'C' ? 'selected' : ''}>C</option>
               <option value="D" ${l.selectedAnswer === 'D' ? 'selected' : ''}>D</option>
             </select>
           </td>
-          <td class="p-2">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+          <td class="p-2.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
               ${l.isCorrect}
             </span>
           </td>
-          <td class="p-2">
-            <button onclick="deleteLogEntry(${index})" class="text-red-600 font-bold hover:underline">Delete</button>
+          <td class="p-2.5">
+            <button onclick="deleteLogEntry(${index})" class="text-rose-600 hover:text-rose-800 font-semibold text-xs">Delete</button>
           </td>
         </tr>`;
       }).join('');
     }
 
     function updateLogResponse(index, newAnswer) {
-      if (!appData.allLogs || !appData.allLogs[index]) return;
       let log = appData.allLogs[index];
+      if (!log) return;
 
-      let payload = {
-        action: 'saveResponse',
-        questionId: log.questionId,
-        studentId: log.studentId,
-        selectedAnswer: newAnswer,
-        folderName: selectedFolder
-      };
+      let q = (appData.questions || []).find(item => String(item.id) === String(log.questionId));
+      let correctKey = q ? (q.correct || 'A').toUpperCase().trim() : 'A';
+      let isCorrect = (newAnswer === correctKey ? 'Correct' : 'Incorrect');
+
+      log.selectedAnswer = newAnswer;
+      log.isCorrect = isCorrect;
+
+      if (String(log.questionId) === String(currentActiveQId)) {
+        let activeLog = (appData.logs || []).find(l => String(l.studentId) === String(log.studentId));
+        if (activeLog) {
+          activeLog.selectedAnswer = newAnswer;
+          activeLog.isCorrect = isCorrect;
+        }
+        renderLogs(appData.logs);
+      }
+
+      renderHistoryTab();
 
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      }).then(() => {
-        loadData();
-      });
+        body: JSON.stringify({
+          action: 'saveResponse',
+          questionId: log.questionId,
+          studentId: log.studentId,
+          selectedAnswer: newAnswer,
+          folderName: log.folder || selectedFolder
+        })
+      }).catch(err => console.error("Error updating response log:", err));
     }
 
     function deleteLogEntry(index) {
-      if (!confirm("Are you sure you want to delete this result entry?")) return;
       let log = appData.allLogs[index];
+      if (!log) return;
+      if (!confirm(`Delete logged answer for ${getStudentNameById(log.studentId)} on Question #${log.questionId}?`)) return;
+
+      appData.allLogs.splice(index, 1);
+      if (String(log.questionId) === String(currentActiveQId)) {
+        appData.logs = (appData.logs || []).filter(l => String(l.studentId) !== String(log.studentId));
+        scannedCache.delete(String(log.studentId));
+        renderLogs(appData.logs);
+      }
+      renderHistoryTab();
 
       fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'deleteResponse', questionId: log.questionId, studentId: log.studentId })
-      }).then(() => {
-        loadData();
-      });
+        body: JSON.stringify({
+          action: 'deleteResponse',
+          questionId: log.questionId,
+          studentId: log.studentId,
+          folderName: log.folder || selectedFolder
+        })
+      }).catch(err => console.error("Error deleting response:", err));
     }
 
     function exportToCSV() {
       let logs = appData.allLogs || [];
-      if (logs.length === 0) return alert("No history data to export.");
+      if (logs.length === 0) return alert("No logs available to export.");
 
-      let qMap = {};
-      (appData.questions || []).forEach(q => {
-        qMap[String(q.id)] = q;
-      });
-
-      let csvContent = "data:text/csv;charset=utf-8,Folder,Question ID,Question Text,Student ID,Student Name,Selected Answer,Correct Answer,Is Correct,Explanation\n";
-      
+      let csv = "Question ID,Student ID,Student Name,Selected Answer,Result,Folder\n";
       logs.forEach(l => {
-        let q = qMap[String(l.questionId)] || {};
-        let folder = (q.folder || "General").replace(/"/g, '""');
-        let qText = (q.text || "").replace(/"/g, '""');
-        let sName = getStudentNameById(l.studentId).replace(/"/g, '""');
-        let correctAns = q.correct || "";
-        let explanation = (q.explanation || "").replace(/"/g, '""');
-
-        csvContent += `"${folder}",${l.questionId},"${qText}",${l.studentId},"${sName}",${l.selectedAnswer},${correctAns},${l.isCorrect},"${explanation}"\n`;
+        let name = getStudentNameById(l.studentId);
+        csv += `"${l.questionId}","${l.studentId}","${name}","${l.selectedAnswer}","${l.isCorrect}","${l.folder || ''}"\n`;
       });
 
-      let encodedUri = encodeURI(csvContent);
+      let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       let link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `plickers_detailed_report_${new Date().toISOString().slice(0,10)}.csv`);
+      let url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `plickers_report_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1636,12 +1675,146 @@
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'clearHistory' })
       }).then(() => {
-        alert("History cleared!");
+        alert("History cleared successfully.");
         loadData();
       });
     }
 
-    // FOLDER & QUESTION MANAGEMENT (WITH SEARCH, BATCH RENDERING, AND CLICK-TO-EDIT)
+    // ---------------------------------------------------------------------
+    // QUESTION CREATOR & FOLDER MANAGEMENT
+    // ---------------------------------------------------------------------
+    function switchQuestionMode(mode) {
+      document.getElementById('panel-single-question').classList.toggle('hidden', mode !== 'single');
+      document.getElementById('panel-bulk-question').classList.toggle('hidden', mode !== 'bulk');
+      
+      let btnSingle = document.getElementById('btnTabSingle');
+      let btnBulk = document.getElementById('btnTabBulk');
+
+      if (mode === 'single') {
+        btnSingle.className = "py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 font-bold transition";
+        btnBulk.className = "py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-semibold transition";
+      } else {
+        btnBulk.className = "py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 font-bold transition";
+        btnSingle.className = "py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-semibold transition";
+      }
+    }
+
+    function getSelectedQuestionFolder() {
+      let select = document.getElementById('singleQFolderSelect');
+      let input = document.getElementById('singleQNewFolderInput');
+      if (select && select.value === '__new__') {
+        return (input ? input.value.trim() : '') || "General";
+      }
+      return (select ? select.value : '') || "General";
+    }
+
+    function submitSingleQuestion() {
+      let folderName = getSelectedQuestionFolder();
+      let text = document.getElementById('singleQText').value.trim();
+      let a = document.getElementById('singleQOptA').value.trim();
+      let b = document.getElementById('singleQOptB').value.trim();
+      let c = document.getElementById('singleQOptC').value.trim();
+      let d = document.getElementById('singleQOptD').value.trim();
+      let correct = document.getElementById('singleQCorrect').value;
+      let explanation = document.getElementById('singleQExplanation').value.trim();
+
+      if (!text || !a || !b) {
+        alert("Please enter the question text and at least Options A and B.");
+        return;
+      }
+
+      let existingQuestions = appData.questions || [];
+      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
+      let maxId = 0;
+      folderQuestions.forEach(q => {
+        let parsed = parseInt(q.id, 10);
+        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
+      });
+      let nextId = String(maxId + 1);
+
+      let newQuestion = {
+        id: nextId,
+        text: text,
+        a: a,
+        b: b,
+        c: c,
+        d: d,
+        correct: correct,
+        folder: folderName,
+        explanation: explanation
+      };
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: [newQuestion] })
+      }).then(() => {
+        alert(`Question added successfully to folder "${folderName}".`);
+        document.getElementById('singleQText').value = '';
+        document.getElementById('singleQOptA').value = '';
+        document.getElementById('singleQOptB').value = '';
+        document.getElementById('singleQOptC').value = '';
+        document.getElementById('singleQOptD').value = '';
+        document.getElementById('singleQExplanation').value = '';
+        selectedFolder = folderName;
+        loadData();
+      }).catch(err => {
+        console.error("Error adding question:", err);
+        alert("Failed to save question: " + err);
+      });
+    }
+
+    function submitBulk() {
+      let rawText = document.getElementById('bulkInput').value.trim();
+      let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
+      if (!rawText) return;
+      
+      let existingQuestions = appData.questions || [];
+      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
+      let maxId = 0;
+      folderQuestions.forEach(q => {
+        let parsed = parseInt(q.id, 10);
+        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
+      });
+      let nextId = maxId + 1;
+
+      let lines = rawText.split('\n');
+      let questionsList = [];
+
+      lines.forEach(line => {
+        let parts = line.split('|').map(p => p.trim());
+        
+        if (parts.length >= 6) {
+          questionsList.push({ 
+            id: String(nextId++), 
+            text: parts[0], 
+            a: parts[1], 
+            b: parts[2], 
+            c: parts[3], 
+            d: parts[4], 
+            correct: parts[5],
+            explanation: parts[6] || ""
+          });
+        }
+      });
+
+      if (questionsList.length === 0) {
+        return alert("Formatting error. Make sure to format lines as:\nQuestion | A | B | C | D | Correct | Explanation");
+      }
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: questionsList })
+      }).then(() => {
+        alert(`Uploaded ${questionsList.length} question(s) to folder "${folderName}".`);
+        document.getElementById('bulkInput').value = '';
+        selectedFolder = folderName;
+        switchTab('scanner');
+        loadData();
+      });
+    }
+
     let folderQuestionLimits = {};
 
     function renderFolderManagement() {
@@ -1660,13 +1833,13 @@
         if (searchTerm && qInFolder.length === 0) return;
 
         let folderBox = document.createElement('div');
-        folderBox.className = 'border p-3 rounded bg-gray-50';
+        folderBox.className = 'border border-slate-200 p-3.5 rounded-lg bg-slate-50';
 
         let headerDiv = document.createElement('div');
-        headerDiv.className = 'flex justify-between items-center mb-2';
+        headerDiv.className = 'flex justify-between items-center mb-2.5';
         headerDiv.innerHTML = `
-          <span class="font-bold text-blue-700 text-sm">📁 ${escapeHtml(fName)} (${qInFolder.length} questions)</span>
-          <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-0.5 rounded text-xs font-semibold delete-folder-btn">Delete Folder</button>
+          <span class="font-bold text-slate-900 text-xs">${escapeHtml(fName)} (${qInFolder.length} questions)</span>
+          <button class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded text-[11px] font-semibold delete-folder-btn transition">Delete Folder</button>
         `;
         headerDiv.querySelector('.delete-folder-btn').onclick = () => deleteFolder(fName);
         folderBox.appendChild(headerDiv);
@@ -1676,27 +1849,26 @@
 
         if (displayedQuestions.length === 0) {
           let emptyDiv = document.createElement('div');
-          emptyDiv.className = 'text-gray-400 italic py-1';
-          emptyDiv.innerText = 'No questions matching filter.';
+          emptyDiv.className = 'text-slate-400 italic py-1';
+          emptyDiv.innerText = 'No questions in this folder.';
           folderBox.appendChild(emptyDiv);
         } else {
           let listDiv = document.createElement('div');
-          listDiv.className = 'space-y-1 divide-y';
+          listDiv.className = 'space-y-1.5 divide-y divide-slate-200';
 
           displayedQuestions.forEach(q => {
             let row = document.createElement('div');
-            row.className = 'flex justify-between items-center py-1.5 text-xs hover:bg-blue-50/50 rounded px-1 transition';
+            row.className = 'flex justify-between items-center py-2 text-xs hover:bg-white rounded px-2 transition border border-transparent hover:border-slate-200';
             row.innerHTML = `
               <span class="truncate pr-2 cursor-pointer flex-1" title="Click to edit question">
-                <b>Q${escapeHtml(q.id)}:</b> ${escapeHtml(q.text)} 
-                <span class="text-gray-400 font-mono">(Ans: ${escapeHtml(q.correct)})</span>
+                <span class="font-bold text-slate-900">Q${escapeHtml(q.id)}:</span> ${escapeHtml(q.text)} 
+                <span class="text-slate-400 font-mono font-bold">(Key: ${escapeHtml(q.correct)})</span>
               </span>
               <div class="flex space-x-2 flex-shrink-0">
-                <button class="text-blue-600 font-bold hover:underline edit-q-btn">Edit</button>
-                <button class="text-red-500 font-bold hover:underline delete-q-btn">Delete</button>
+                <button class="text-slate-700 font-semibold hover:underline edit-q-btn">Edit</button>
+                <button class="text-rose-600 font-semibold hover:underline delete-q-btn">Delete</button>
               </div>
             `;
-            // Click on row or Edit button to open edit modal
             row.querySelector('span').onclick = () => openEditQuestionModal(q.id, fName);
             row.querySelector('.edit-q-btn').onclick = () => openEditQuestionModal(q.id, fName);
             row.querySelector('.delete-q-btn').onclick = () => deleteQuestion(q.id, fName);
@@ -1706,8 +1878,8 @@
 
           if (!searchTerm && qInFolder.length > maxDisplay) {
             let loadMoreBtn = document.createElement('button');
-            loadMoreBtn.className = 'mt-2 text-xs text-blue-600 font-bold hover:underline';
-            loadMoreBtn.innerText = `⬇️ Show more (${qInFolder.length - maxDisplay} remaining)...`;
+            loadMoreBtn.className = 'mt-2 text-xs text-slate-700 font-bold hover:underline';
+            loadMoreBtn.innerText = `Show more (${qInFolder.length - maxDisplay} remaining)...`;
             loadMoreBtn.onclick = () => {
               folderQuestionLimits[fName] = maxDisplay + 100;
               renderFolderManagement();
@@ -1726,6 +1898,7 @@
         "She ___ to school every morning. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple.\n" +
         "They ___ soccer yesterday afternoon. | played | play | playing | plays | A | Past simple tense requires '-ed'.\n" +
         "Which word is a noun? | Quick | Run | Apple | Beautiful | C | 'Apple' is a concrete object noun.";
+      switchQuestionMode('bulk');
     }
 
     function deleteQuestion(qId, folderName) {
@@ -1742,7 +1915,7 @@
         } else {
           document.getElementById('dispQText').innerText = "Select a question to display...";
           ['dispOptA', 'dispOptB', 'dispOptC', 'dispOptD'].forEach(id => {
-            document.getElementById(id).innerHTML = "-";
+            document.getElementById(id).querySelector('.opt-text').innerText = "-";
           });
         }
       }
@@ -1760,13 +1933,11 @@
         if (resData && resData.data) {
           appData = resData.data;
           renderFolderManagement();
+          syncFolderSelectDropdown();
           renderQuestionDropdown();
         }
       })
-      .catch(err => {
-        console.error("Delete question error:", err);
-        loadData();
-      });
+      .catch(err => console.error("Error deleting question:", err));
     }
 
     function deleteFolder(fName) {
@@ -1803,6 +1974,9 @@
       });
     }
 
+    // ---------------------------------------------------------------------
+    // STUDENT GROUPS & ROSTERS
+    // ---------------------------------------------------------------------
     function renderGroupsTab() {
       let select = document.getElementById('groupSelect');
       let savedGroups = JSON.parse(localStorage.getItem('plickers_groups') || '{}');
@@ -1869,15 +2043,24 @@
       if (!rawNames) return;
 
       let names = rawNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
-      let groupList = [];
+      let groupList = groupsData[currentGroupName] || [];
 
-      names.forEach((name, index) => {
-        groupList.push({ id: String(index + 1), name: name });
+      let usedCards = new Set(groupList.map(s => parseInt(s.id, 10)));
+      let nextCard = 1;
+
+      names.forEach(name => {
+        while (usedCards.has(nextCard) && nextCard <= 100) {
+          nextCard++;
+        }
+        if (nextCard <= 100) {
+          groupList.push({ id: String(nextCard), name: name });
+          usedCards.add(nextCard);
+          nextCard++;
+        }
       });
 
       groupsData[currentGroupName] = groupList;
       localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
-      
       document.getElementById('bulkStudentNames').value = '';
       renderGroupRosterTable();
       syncGroupToRoster(groupList);
@@ -1888,13 +2071,11 @@
       let name = document.getElementById('singleStudentName').value.trim();
       let cardNum = document.getElementById('singleStudentCard').value.trim();
 
-      if (!name || !cardNum) return alert("Provide both student name and card number.");
+      if (!name || !cardNum) return alert("Enter both student name and card number.");
 
       let groupList = groupsData[currentGroupName] || [];
       groupList = groupList.filter(s => String(s.id) !== String(cardNum));
       groupList.push({ id: String(cardNum), name: name });
-
-      groupList.sort((a, b) => parseInt(a.id) - parseInt(b.id));
 
       groupsData[currentGroupName] = groupList;
       localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
@@ -1909,7 +2090,6 @@
       if (!currentGroupName) return;
       let groupList = groupsData[currentGroupName] || [];
       groupList = groupList.filter(s => String(s.id) !== String(cardId));
-
       groupsData[currentGroupName] = groupList;
       localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
       renderGroupRosterTable();
@@ -1918,36 +2098,31 @@
 
     function renderGroupRosterTable() {
       let tbody = document.getElementById('groupRosterTable');
-      let groupList = groupsData[currentGroupName] || [];
+      let groupList = (groupsData[currentGroupName] || []).sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
       if (groupList.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="p-2 text-gray-400 italic">No students added to this group yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-slate-400 italic text-center">No students added to this group yet.</td></tr>';
         return;
       }
 
       tbody.innerHTML = groupList.map(s => `
-        <tr class="border-b">
-          <td class="p-2 font-bold text-blue-700">Card #${s.id}</td>
-          <td class="p-2 font-semibold text-gray-800">${escapeHtml(s.name)}</td>
-          <td class="p-2">
-            <button onclick="removeStudentFromGroup('${s.id}')" class="text-red-500 hover:underline font-bold">Remove</button>
+        <tr class="border-b border-slate-100 hover:bg-slate-50/50">
+          <td class="p-2.5 font-bold text-slate-900">Card #${escapeHtml(s.id)}</td>
+          <td class="p-2.5 font-medium">${escapeHtml(s.name)}</td>
+          <td class="p-2.5">
+            <button onclick="removeStudentFromGroup('${s.id}')" class="text-rose-600 hover:text-rose-800 font-semibold text-xs">Remove</button>
           </td>
         </tr>
       `).join('');
     }
 
     function syncGroupToRoster(groupList) {
-      for (let i = 1; i <= 100; i++) {
-        activeCardsState[String(i)] = false;
-      }
-
-      let updatedList = [];
       let groupMap = {};
       groupList.forEach(s => {
         groupMap[String(s.id)] = s.name;
-        activeCardsState[String(s.id)] = true;
       });
 
+      let updatedList = [];
       for (let i = 1; i <= 100; i++) {
         let idStr = String(i);
         updatedList.push({ id: idStr, name: groupMap[idStr] || ("Card " + idStr) });
@@ -1964,6 +2139,9 @@
       });
     }
 
+    // ---------------------------------------------------------------------
+    // CARDS & PRINT ENGINE
+    // ---------------------------------------------------------------------
     function renderStudentCards() {
       let container = document.getElementById('cardsContainer');
       container.innerHTML = '';
@@ -1974,12 +2152,12 @@
         let isActive = activeCardsState[s.id] !== false;
 
         let cardDiv = document.createElement('div');
-        cardDiv.className = `border p-2.5 rounded text-center transition-all ${isActive ? 'bg-white border-gray-300' : 'bg-red-50 opacity-60'} flex flex-col items-center shadow-sm relative`;
+        cardDiv.className = `border p-3 rounded-lg text-center transition-all ${isActive ? 'bg-white border-slate-300' : 'bg-slate-50 opacity-50'} flex flex-col items-center shadow-sm relative`;
         
         cardDiv.innerHTML = `
-          <div class="flex justify-between items-center w-full mb-1">
-            <span class="text-xs font-black text-gray-800">Card #${s.id}</span>
-            <button onclick="toggleCardStatus('${s.id}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}">
+          <div class="flex justify-between items-center w-full mb-1.5">
+            <span class="text-xs font-bold text-slate-900">Card #${s.id}</span>
+            <button onclick="toggleCardStatus('${s.id}')" class="text-[10px] font-bold px-2 py-0.5 rounded ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'}">
               ${isActive ? 'Active' : 'Inactive'}
             </button>
           </div>
@@ -2059,9 +2237,9 @@
       }, 500);
     }
 
-    /* -------------------------------------------------------------
-       ROTATION-AWARE CAMERA ENGINE (jsQR) - DEFAULTS TO 720p
-    ------------------------------------------------------------- */
+    // ---------------------------------------------------------------------
+    // ROTATION-AWARE CAMERA ENGINE (jsQR) - DEFAULTS TO 720p
+    // ---------------------------------------------------------------------
     function changeCameraResolution(val) {
       selectedCameraResolution = val;
       if (isScannerRunning) {
@@ -2075,7 +2253,6 @@
       const video = document.getElementById('webcam-video');
       const resBadge = document.getElementById('cameraResBadge');
       
-      // Default is 720p; switches to 1080p, 4K, or max if user selects
       let constraintsList = [];
       if (selectedCameraResolution === "4k") {
         constraintsList = [
@@ -2105,56 +2282,40 @@
       for (let constraints of constraintsList) {
         try {
           stream = await navigator.mediaDevices.getUserMedia(constraints);
-          if (stream) break;
-        } catch (e) {
-          // Try next constraint
-        }
+          break;
+        } catch (e) {}
       }
 
       if (!stream) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true });
         } catch (err) {
-          return alert("Camera initialization failed: " + err);
+          console.error("Camera access error:", err);
+          alert("Cannot access webcam: " + err.message);
+          return;
         }
       }
 
-      try {
-        videoStream = stream;
-        video.srcObject = videoStream;
-        video.setAttribute("playsinline", true);
-        await video.play();
-
-        let track = videoStream.getVideoTracks()[0];
-        let settings = track && track.getSettings ? track.getSettings() : {};
-        let actualW = settings.width || video.videoWidth || 0;
-        let actualH = settings.height || video.videoHeight || 0;
-
-        let qualityLabel = "HD";
-        if (actualW >= 3840 || actualH >= 2160) {
-          qualityLabel = "4K UHD";
-        } else if (actualW >= 1920 || actualH >= 1080) {
-          qualityLabel = "1080p Full HD";
-        } else if (actualW >= 1280 || actualH >= 720) {
-          qualityLabel = "720p HD";
-        } else if (actualW > 0) {
-          qualityLabel = `${actualW}×${actualH}`;
-        }
-
+      videoStream = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true);
+      
+      video.onloadedmetadata = () => {
+        video.play();
+        isScannerRunning = true;
+        
+        let actualW = video.videoWidth;
+        let actualH = video.videoHeight;
         if (resBadge) {
-          resBadge.innerText = `📷 ${actualW ? actualW + "×" + actualH + " (" + qualityLabel + ")" : qualityLabel}`;
+          resBadge.innerText = `${actualW}x${actualH} (${selectedCameraResolution.toUpperCase()})`;
           resBadge.classList.remove('hidden');
         }
 
-        isScannerRunning = true;
-        scanAnimationId = requestAnimationFrame(tickScanner);
-      } catch (err) {
-        alert("Camera start error: " + err);
-      }
+        scanAnimationId = requestAnimationFrame(scanQRCodeTick);
+      };
     }
 
     async function stopScanner() {
-      isScannerRunning = false;
       if (scanAnimationId) {
         cancelAnimationFrame(scanAnimationId);
         scanAnimationId = null;
@@ -2163,17 +2324,20 @@
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;
       }
+      isScannerRunning = false;
+      
       const video = document.getElementById('webcam-video');
       video.srcObject = null;
-      const canvas = document.getElementById('qr-canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const resBadge = document.getElementById('cameraResBadge');
       if (resBadge) resBadge.classList.add('hidden');
+
+      const canvas = document.getElementById('qr-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    function tickScanner() {
+    function scanQRCodeTick() {
       if (!isScannerRunning) return;
 
       const video = document.getElementById('webcam-video');
@@ -2190,12 +2354,13 @@
           inversionAttempts: "dontInvert"
         });
 
-        if (code) {
+        if (code && code.data) {
           drawQRBoundingBox(ctx, code.location);
           processDetectedQR(code);
         }
       }
-      scanAnimationId = requestAnimationFrame(tickScanner);
+
+      scanAnimationId = requestAnimationFrame(scanQRCodeTick);
     }
 
     function drawQRBoundingBox(ctx, location) {
@@ -2258,646 +2423,9 @@
         body: JSON.stringify(payload)
       }).then(() => syncState()).catch(err => console.error("Error saving scan:", err));
     }
-
-    function submitBulk() {
-      let rawText = document.getElementById('bulkInput').value.trim();
-      let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
-      if (!rawText) return;
-      
-      let existingQuestions = appData.questions || [];
-      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
-      let maxId = 0;
-      folderQuestions.forEach(q => {
-        let parsed = parseInt(q.id, 10);
-        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
-      });
-      let nextId = maxId + 1;
-
-      let lines = rawText.split('\n');
-      let questionsList = [];
-
-      lines.forEach(line => {
-        let parts = line.split('|').map(p => p.trim());
-        
-        if (parts.length >= 6) {
-          questionsList.push({ 
-            id: String(nextId++), 
-            text: parts[0], 
-            a: parts[1], 
-            b: parts[2], 
-            c: parts[3], 
-            d: parts[4], 
-            correct: parts[5],
-            explanation: parts[6] || ""
-          });
-        }
-      });
-
-      if (questionsList.length === 0) {
-        return alert("Formatting error. Make sure to format lines as:\nQuestion | A | B | C | D | Correct | Explanation");
-      }
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: questionsList })
-      }).then(() => {
-        alert(`Uploaded ${questionsList.length} question(s) to folder "${folderName}"!`);
-        document.getElementById('bulkInput').value = '';
-        switchTab('scanner');
-        loadData();
-      });
-    }
-
-    // =====================================================================
-    // AI QUESTION CREATOR & DOCUMENT PARSING ENGINE
-    // =====================================================================
-    let currentQuestionSubtab = 'ai';
-    let currentAiInputMode = 'topic';
-    let uploadedDocText = "";
-    let uploadedDocFileName = "";
-    let generatedQuestionsList = [];
-
-    function switchQuestionSubtab(tab) {
-      currentQuestionSubtab = tab;
-      document.getElementById('subtab-ai-content').classList.toggle('hidden', tab !== 'ai');
-      document.getElementById('subtab-manual-content').classList.toggle('hidden', tab !== 'manual');
-      
-      let btnAi = document.getElementById('btnSubtabAi');
-      let btnManual = document.getElementById('btnSubtabManual');
-      if (tab === 'ai') {
-        btnAi.className = "py-2 px-3 border-b-2 border-blue-600 text-blue-600 transition flex items-center gap-1 font-bold";
-        btnManual.className = "py-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition flex items-center gap-1 font-bold";
-      } else {
-        btnManual.className = "py-2 px-3 border-b-2 border-blue-600 text-blue-600 transition flex items-center gap-1 font-bold";
-        btnAi.className = "py-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition flex items-center gap-1 font-bold";
-      }
-    }
-
-    function setAiInputMode(mode) {
-      currentAiInputMode = mode;
-      document.getElementById('aiTopicArea').classList.toggle('hidden', mode !== 'topic');
-      document.getElementById('aiDocArea').classList.toggle('hidden', mode !== 'doc');
-      
-      let btnTopic = document.getElementById('btnAiModeTopic');
-      let btnDoc = document.getElementById('btnAiModeDoc');
-      if (mode === 'topic') {
-        btnTopic.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold shadow-sm bg-blue-600 text-white transition flex items-center justify-center gap-1.5";
-        btnDoc.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold bg-white text-gray-700 border hover:bg-gray-50 transition flex items-center justify-center gap-1.5";
-      } else {
-        btnDoc.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold shadow-sm bg-blue-600 text-white transition flex items-center justify-center gap-1.5";
-        btnTopic.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold bg-white text-gray-700 border hover:bg-gray-50 transition flex items-center justify-center gap-1.5";
-      }
-    }
-
-    function getSavedGeminiKey() {
-      return (localStorage.getItem('plickers_gemini_api_key') || '').trim();
-    }
-
-    function updateApiKeyButtonUI() {
-      const btn = document.getElementById('apiKeyBtnLabel');
-      if (btn) {
-        const hasKey = !!getSavedGeminiKey();
-        btn.innerText = hasKey ? "Gemini Key: Active ✓" : "Set Gemini Key";
-      }
-    }
-
-    function openApiKeyModal() {
-      const input = document.getElementById('geminiApiKeyInput');
-      if (input) input.value = getSavedGeminiKey();
-      document.getElementById('geminiApiKeyModal').classList.remove('hidden');
-    }
-
-    function closeApiKeyModal() {
-      document.getElementById('geminiApiKeyModal').classList.add('hidden');
-    }
-
-    function saveApiKeyFromModal() {
-      const input = document.getElementById('geminiApiKeyInput');
-      const key = input ? input.value.trim() : '';
-      if (key) {
-        localStorage.setItem('plickers_gemini_api_key', key);
-        alert("Gemini API Key saved successfully!");
-      } else {
-        localStorage.removeItem('plickers_gemini_api_key');
-        alert("Gemini API Key removed.");
-      }
-      updateApiKeyButtonUI();
-      closeApiKeyModal();
-    }
-
-    async function handleDocFileUpload(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-
-      uploadedDocFileName = file.name;
-      const statusBox = document.getElementById('docExtractStatus');
-      const nameLabel = document.getElementById('docFileNameLabel');
-      const statsLabel = document.getElementById('docStatsLabel');
-      const previewBox = document.getElementById('docPreviewBox');
-
-      statusBox.classList.remove('hidden');
-      nameLabel.innerText = file.name;
-      statsLabel.innerText = "Extracting text from file...";
-      previewBox.classList.add('hidden');
-
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const ext = file.name.split('.').pop().toLowerCase();
-
-        if (ext === 'pdf') {
-          uploadedDocText = await extractTextFromPDF(arrayBuffer);
-        } else if (ext === 'docx') {
-          uploadedDocText = await extractTextFromDocx(arrayBuffer);
-        } else {
-          uploadedDocText = await readAsPlainText(file);
-        }
-
-        uploadedDocText = (uploadedDocText || "").trim();
-        if (!uploadedDocText) {
-          statsLabel.innerText = "⚠️ No readable text found in document.";
-          return;
-        }
-
-        statsLabel.innerText = `(${uploadedDocText.length} characters extracted)`;
-        previewBox.innerText = uploadedDocText.slice(0, 1000) + (uploadedDocText.length > 1000 ? "\n... [preview truncated]" : "");
-
-        let baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-        let topicInput = document.getElementById('aiTopicInput');
-        if (!topicInput.value) topicInput.value = baseName;
-
-        let targetFolder = document.getElementById('aiTargetFolder');
-        if (!targetFolder.value || targetFolder.value === "General") targetFolder.value = baseName;
-      } catch (err) {
-        console.error("Doc extract error:", err);
-        statsLabel.innerText = `❌ Extraction error: ${err.message || err}`;
-      }
-    }
-
-    function toggleDocPreview() {
-      const previewBox = document.getElementById('docPreviewBox');
-      previewBox.classList.toggle('hidden');
-    }
-
-    async function extractTextFromPDF(arrayBuffer) {
-      if (typeof pdfjsLib === 'undefined') {
-        throw new Error("PDF parser library could not be loaded. Please ensure an active internet connection.");
-      }
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      let fullText = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n\n';
-      }
-      return fullText;
-    }
-
-    async function extractTextFromDocx(arrayBuffer) {
-      if (typeof mammoth === 'undefined') {
-        throw new Error("Word DOCX parser library could not be loaded. Please ensure an active internet connection.");
-      }
-      const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
-      return result.value;
-    }
-
-    function readAsPlainText(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result || '');
-        reader.onerror = reject;
-        reader.readAsText(file);
-      });
-    }
-
-    function parseQuizTextLocally(text, maxOptions) {
-      if (!text) return [];
-      let questions = [];
-      let rawBlocks = text.split(/(?:^|\n)\s*(?:Q(?:uestion)?\s*)?(\d+)[\.\)\:]\s*/i);
-      
-      if (rawBlocks.length > 2) {
-        for (let i = 1; i < rawBlocks.length; i += 2) {
-          let qNum = rawBlocks[i];
-          let body = rawBlocks[i + 1] || "";
-          
-          let optAMatch = body.match(/(?:^|\n)\s*[A][\.\)\:\-]\s*([^\n]+)/i);
-          let optBMatch = body.match(/(?:^|\n)\s*[B][\.\)\:\-]\s*([^\n]+)/i);
-          let optCMatch = body.match(/(?:^|\n)\s*[C][\.\)\:\-]\s*([^\n]+)/i);
-          let optDMatch = body.match(/(?:^|\n)\s*[D][\.\)\:\-]\s*([^\n]+)/i);
-          let ansMatch = body.match(/(?:Answer|Correct|Javob|Key)[\s\:\-]+([A-D])/i);
-          
-          if (optAMatch && optBMatch) {
-            let qText = body.split(/(?:^|\n)\s*[A][\.\)\:\-]/i)[0].trim();
-            questions.push({
-              id: String(questions.length + 1),
-              text: qText || `Question ${qNum}`,
-              a: optAMatch[1].trim(),
-              b: optBMatch[1].trim(),
-              c: (optCMatch ? optCMatch[1].trim() : (maxOptions >= 3 ? "Option C" : "")),
-              d: (optDMatch ? optDMatch[1].trim() : (maxOptions >= 4 ? "Option D" : "")),
-              correct: ansMatch ? ansMatch[1].toUpperCase() : "A",
-              explanation: ""
-            });
-          }
-        }
-      }
-      return questions;
-    }
-
-    function renderAiFolderSelect() {
-      let select = document.getElementById('aiFolderSelect');
-      if (!select) return;
-
-      let folders = appData.folders || [];
-      let currentVal = select.value || selectedFolder || "General";
-
-      select.innerHTML = '';
-      if (folders.length === 0) {
-        let optGen = document.createElement('option');
-        optGen.value = "General";
-        optGen.text = "General";
-        select.appendChild(optGen);
-      } else {
-        folders.forEach(f => {
-          let opt = document.createElement('option');
-          opt.value = f;
-          opt.text = f;
-          if (f === currentVal) opt.selected = true;
-          select.appendChild(opt);
-        });
-      }
-
-      let newOpt = document.createElement('option');
-      newOpt.value = "__new__";
-      newOpt.text = "➕ Create New Folder...";
-      if (currentVal === "__new__") newOpt.selected = true;
-      select.appendChild(newOpt);
-
-      onAiFolderSelectChange();
-    }
-
-    function onAiFolderSelectChange() {
-      let select = document.getElementById('aiFolderSelect');
-      let input = document.getElementById('aiNewFolderInput');
-      if (!select || !input) return;
-
-      if (select.value === '__new__') {
-        input.classList.remove('hidden');
-        input.focus();
-      } else {
-        input.classList.add('hidden');
-      }
-    }
-
-    function getSelectedAiFolder() {
-      let select = document.getElementById('aiFolderSelect');
-      let input = document.getElementById('aiNewFolderInput');
-      if (select && select.value === '__new__') {
-        return (input ? input.value.trim() : '') || "General";
-      }
-      return (select ? select.value : '') || "General";
-    }
-
-    async function callGeminiGenerateQuestions({ promptContent, numQuestions, numOptions, complexity, folderName }) {
-      const apiKey = getSavedGeminiKey();
-      if (!apiKey) throw new Error("NO_API_KEY");
-
-      const systemInstruction = `You are an expert curriculum and educational quiz designer. Generate exactly ${numQuestions} high-quality multiple-choice questions for school/classroom quizzes.
-Specifications:
-- Total number of questions: ${numQuestions}
-- Number of choices per question: ${numOptions} (${numOptions === 2 ? 'Provide only options A and B' : numOptions === 3 ? 'Provide options A, B, and C' : 'Provide options A, B, C, and D'})
-- Complexity level: ${complexity} (${complexity === 'Easy' ? 'fundamental recall and simple terminology' : complexity === 'Medium' ? 'standard curriculum understanding and problem solving' : 'advanced analytical thinking, tricky distractors, deep concept evaluation'})
-- Exactly ONE option must be the correct answer.
-- Return ONLY a valid JSON array of objects with keys: "text", "a", "b", "c", "d", "correct" (uppercase letter "A", "B", "C", or "D"), "explanation".
-- If ${numOptions} is 2, set "c": "" and "d": "". If ${numOptions} is 3, set "d": "".`;
-
-      const candidateModels = [
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-2.5-flash",
-        "gemini-2.0-flash"
-      ];
-
-      const bodyData = {
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: systemInstruction + "\n\nSource Material / Topic:\n" + promptContent }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.7
-        }
-      };
-
-      let lastError = null;
-
-      for (let model of candidateModels) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bodyData)
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            lastError = new Error(`Gemini API (${model} error ${response.status}): ${errorText}`);
-            if (response.status === 404) {
-              console.warn(`Model ${model} returned 404, trying next candidate...`);
-              continue;
-            } else {
-              throw lastError;
-            }
-          }
-
-          const resJson = await response.json();
-          const textOut = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!textOut) throw new Error("Gemini returned empty output.");
-
-          let parsed = JSON.parse(textOut);
-          if (parsed.questions && Array.isArray(parsed.questions)) parsed = parsed.questions;
-          if (!Array.isArray(parsed)) throw new Error("Expected a JSON array of questions.");
-          return parsed;
-        } catch (err) {
-          lastError = err;
-          if (!err.message || !err.message.includes("404")) {
-            throw err;
-          }
-        }
-      }
-
-      // Dynamic model discovery fallback: query user's permitted models list
-      try {
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          const available = (listData.models || [])
-            .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
-            .map(m => m.name.replace(/^models\//, ''));
-          
-          for (let model of available) {
-            try {
-              const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-              const resp = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bodyData)
-              });
-              if (resp.ok) {
-                const resJ = await resp.json();
-                const out = resJ.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (out) {
-                  let p = JSON.parse(out);
-                  if (p.questions && Array.isArray(p.questions)) p = p.questions;
-                  if (Array.isArray(p)) return p;
-                }
-              }
-            } catch (innerE) {}
-          }
-        }
-      } catch (e) {}
-
-      throw lastError || new Error("All Gemini models failed. Please verify your API key.");
-    }
-
-    async function startAiGeneration() {
-      const numQuestions = parseInt(document.getElementById('aiNumQuestions').value, 10) || 5;
-      const numOptions = parseInt(document.getElementById('aiNumOptions').value, 10) || 4;
-      const complexity = document.getElementById('aiComplexity').value || "Medium";
-      const targetFolder = getSelectedAiFolder();
-
-      let promptContent = "";
-      if (currentAiInputMode === 'doc') {
-        if (!uploadedDocText) {
-          alert("Please upload a file (.pdf, .docx, or .txt) first, or switch to 'Generate from Topic Name'.");
-          return;
-        }
-        promptContent = uploadedDocText;
-      } else {
-        const topic = document.getElementById('aiTopicInput').value.trim();
-        if (!topic) {
-          alert("Please enter a Topic name!");
-          return;
-        }
-        const context = document.getElementById('aiTopicContext').value.trim();
-        promptContent = `Topic: ${topic}\n` + (context ? `Context/Instructions: ${context}\n` : "");
-      }
-
-      // Check if we can parse local questions directly from document if no API key
-      if (currentAiInputMode === 'doc' && !getSavedGeminiKey()) {
-        const local = parseQuizTextLocally(promptContent, numOptions);
-        if (local && local.length > 0) {
-          generatedQuestionsList = local.slice(0, numQuestions);
-          renderAiGeneratedReview();
-          return;
-        }
-      }
-
-      const apiKey = getSavedGeminiKey();
-      if (!apiKey) {
-        alert("To generate questions automatically using Google Gemini AI, please enter your free Gemini API key.");
-        openApiKeyModal();
-        return;
-      }
-
-      const loadingStatus = document.getElementById('aiLoadingStatus');
-      const loadingMsg = document.getElementById('aiLoadingMsg');
-      const btn = document.getElementById('btnGenerateAi');
-
-      try {
-        loadingStatus.classList.remove('hidden');
-        loadingMsg.innerText = `Generating ${numQuestions} questions (${complexity} level, ${numOptions} options) using Gemini AI...`;
-        btn.disabled = true;
-
-        const questions = await callGeminiGenerateQuestions({
-          promptContent: promptContent,
-          numQuestions: numQuestions,
-          numOptions: numOptions,
-          complexity: complexity,
-          folderName: targetFolder
-        });
-
-        generatedQuestionsList = questions.map((q, idx) => ({
-          id: String(idx + 1),
-          text: q.text || "",
-          a: q.a || "",
-          b: q.b || "",
-          c: (numOptions >= 3 ? (q.c || "") : ""),
-          d: (numOptions >= 4 ? (q.d || "") : ""),
-          correct: (q.correct || "A").toUpperCase().trim(),
-          explanation: q.explanation || ""
-        }));
-
-        renderAiGeneratedReview();
-      } catch (err) {
-        console.error("AI Generation error:", err);
-        alert("Question Generation Failed:\n" + (err.message || err));
-      } finally {
-        loadingStatus.classList.add('hidden');
-        btn.disabled = false;
-      }
-    }
-
-    function renderAiGeneratedReview() {
-      const container = document.getElementById('aiGeneratedItemsList');
-      const reviewBox = document.getElementById('aiGeneratedReviewBox');
-      const badge = document.getElementById('aiReviewCountBadge');
-      const bottomCount = document.getElementById('aiReviewCountBottom');
-
-      if (!generatedQuestionsList || generatedQuestionsList.length === 0) {
-        reviewBox.classList.add('hidden');
-        return;
-      }
-
-      reviewBox.classList.remove('hidden');
-      badge.innerText = `${generatedQuestionsList.length} Questions`;
-      bottomCount.innerText = generatedQuestionsList.length;
-
-      const numOptions = parseInt(document.getElementById('aiNumOptions').value, 10) || 4;
-
-      container.innerHTML = generatedQuestionsList.map((q, idx) => `
-        <div class="p-3 bg-white border border-indigo-200 rounded-lg shadow-sm space-y-2 text-xs relative">
-          <div class="flex justify-between items-center border-b pb-1">
-            <span class="font-black text-indigo-900">#${idx + 1}</span>
-            <button onclick="removeGeneratedQuestion(${idx})" class="text-rose-600 hover:text-rose-800 font-bold text-[11px]">🗑️ Remove</button>
-          </div>
-
-          <div>
-            <label class="block font-bold text-gray-700 mb-0.5">Question Text:</label>
-            <textarea onchange="updateGeneratedQuestionField(${idx}, 'text', this.value)" rows="2" class="w-full p-1.5 border rounded">${escapeHtml(q.text)}</textarea>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <label class="block font-bold text-blue-700 mb-0.5">Option A:</label>
-              <input type="text" onchange="updateGeneratedQuestionField(${idx}, 'a', this.value)" value="${escapeHtml(q.a)}" class="w-full p-1.5 border rounded">
-            </div>
-            <div>
-              <label class="block font-bold text-emerald-700 mb-0.5">Option B:</label>
-              <input type="text" onchange="updateGeneratedQuestionField(${idx}, 'b', this.value)" value="${escapeHtml(q.b)}" class="w-full p-1.5 border rounded">
-            </div>
-            ${numOptions >= 3 ? `
-            <div>
-              <label class="block font-bold text-amber-700 mb-0.5">Option C:</label>
-              <input type="text" onchange="updateGeneratedQuestionField(${idx}, 'c', this.value)" value="${escapeHtml(q.c || '')}" class="w-full p-1.5 border rounded">
-            </div>` : ''}
-            ${numOptions >= 4 ? `
-            <div>
-              <label class="block font-bold text-rose-700 mb-0.5">Option D:</label>
-              <input type="text" onchange="updateGeneratedQuestionField(${idx}, 'd', this.value)" value="${escapeHtml(q.d || '')}" class="w-full p-1.5 border rounded">
-            </div>` : ''}
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <label class="block font-bold text-purple-700 mb-0.5">Correct Answer Key:</label>
-              <select onchange="updateGeneratedQuestionField(${idx}, 'correct', this.value)" class="w-full p-1.5 border rounded font-bold bg-white">
-                <option value="A" ${q.correct === 'A' ? 'selected' : ''}>A</option>
-                <option value="B" ${q.correct === 'B' ? 'selected' : ''}>B</option>
-                ${numOptions >= 3 ? `<option value="C" ${q.correct === 'C' ? 'selected' : ''}>C</option>` : ''}
-                ${numOptions >= 4 ? `<option value="D" ${q.correct === 'D' ? 'selected' : ''}>D</option>` : ''}
-              </select>
-            </div>
-            <div>
-              <label class="block font-bold text-gray-700 mb-0.5">Explanation (Optional):</label>
-              <input type="text" onchange="updateGeneratedQuestionField(${idx}, 'explanation', this.value)" value="${escapeHtml(q.explanation || '')}" class="w-full p-1.5 border rounded" placeholder="Explanation for students...">
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function updateGeneratedQuestionField(index, field, value) {
-      if (generatedQuestionsList[index]) {
-        generatedQuestionsList[index][field] = value;
-      }
-    }
-
-    function removeGeneratedQuestion(index) {
-      generatedQuestionsList.splice(index, 1);
-      renderAiGeneratedReview();
-    }
-
-    function addBlankGeneratedQuestion() {
-      generatedQuestionsList.push({
-        id: String(generatedQuestionsList.length + 1),
-        text: "New Question Text",
-        a: "Choice 1",
-        b: "Choice 2",
-        c: "Choice 3",
-        d: "Choice 4",
-        correct: "A",
-        explanation: ""
-      });
-      renderAiGeneratedReview();
-    }
-
-    function discardGeneratedQuestions() {
-      generatedQuestionsList = [];
-      renderAiGeneratedReview();
-    }
-
-    function saveAllGeneratedQuestions() {
-      if (!generatedQuestionsList || generatedQuestionsList.length === 0) {
-        alert("No generated questions to save.");
-        return;
-      }
-
-      let folderName = getSelectedAiFolder();
-      let existingQuestions = appData.questions || [];
-      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
-      let maxId = 0;
-      folderQuestions.forEach(q => {
-        let parsed = parseInt(q.id, 10);
-        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
-      });
-      let nextId = maxId + 1;
-
-      let questionsList = generatedQuestionsList.map(q => ({
-        id: String(nextId++),
-        text: q.text,
-        a: q.a,
-        b: q.b,
-        c: q.c || "",
-        d: q.d || "",
-        correct: (q.correct || "A").toUpperCase().trim(),
-        explanation: q.explanation || "",
-        folder: folderName
-      }));
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: questionsList })
-      }).then(() => {
-        alert(`Successfully added ${questionsList.length} question(s) to folder "${folderName}"!`);
-        discardGeneratedQuestions();
-        selectedFolder = folderName;
-        loadData();
-        switchTab('scanner');
-      }).catch(err => {
-        console.error("Save generated questions error:", err);
-        alert("Error uploading questions to server: " + err);
-      });
-    }
-
-    function filterExistingQuestions(query) {
-      let qInput = document.getElementById('searchQuestionInput');
-      if (qInput) qInput.value = query;
-      renderFolderManagement();
-    }
   </script>
 
-  <!-- GOOGLE APPS SCRIPT BACKEND CODE (UPDATED WITH editQuestion) -->
+  <!-- GOOGLE APPS SCRIPT BACKEND CODE (REFERENCE) -->
   <script id="google-apps-script-code" type="text/plain">
     /**
      * Google Apps Script Backend for Plickers Web App.
