@@ -343,8 +343,14 @@
       <div class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl">
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder Name:</label>
-            <input type="text" id="targetFolderInput" class="w-full sm:w-1/2 p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900" value="English Grammar" placeholder="e.g. Unit 1 Grammar">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder:</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select id="targetFolderSelect" onchange="onTargetFolderSelectChange()" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900">
+                <option value="General">General</option>
+                <option value="__new__">+ Create New Folder...</option>
+              </select>
+              <input type="text" id="targetNewFolderInput" class="hidden w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900" placeholder="Type new folder name...">
+            </div>
           </div>
 
           <div>
@@ -412,34 +418,34 @@
 
       <!-- Add Students to Current Group -->
       <div id="groupActiveArea" class="hidden">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <!-- Bulk Add Students -->
-          <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
-            <h3 class="text-xs font-bold text-slate-800 mb-1">Bulk Add Student Names</h3>
-            <p class="text-[11px] text-slate-500 mb-2">Sequential cards are automatically assigned.</p>
-            <textarea id="bulkStudentNames" rows="4" class="w-full p-2 border border-slate-300 rounded-lg text-xs mb-2 font-mono bg-white" placeholder="John Doe&#10;Jane Smith&#10;Alex Johnson"></textarea>
-            <button onclick="bulkAddStudentsToGroup()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg text-xs font-bold transition">
-              Assign Cards & Save Roster
-            </button>
-          </div>
+        <div class="mb-4">
+          <!-- Add Student(s) -->
+          <div class="p-4 border border-slate-200 rounded-lg bg-slate-50">
+            <h3 class="text-xs font-bold text-slate-800 mb-1">Add Student(s)</h3>
+            <p class="text-[11px] text-slate-500 mb-2.5">Enter student names and specify or select card numbers (for one or multiple students).</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <!-- Left Partition: Student Names -->
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Student Name(s) (one per line):</label>
+                <textarea id="studentNamesInput" rows="4" class="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900" placeholder="Abdlaziz Asnad&#10;Khalid Abdulaziz&#10;Waleed Abdulaziz"></textarea>
+              </div>
 
-          <!-- Add Single Student with Card ID -->
-          <div class="p-3.5 border border-slate-200 rounded-lg bg-slate-50">
-            <h3 class="text-xs font-bold text-slate-800 mb-1">Add Individual Student</h3>
-            <p class="text-[11px] text-slate-500 mb-2">Assign specific card number directly.</p>
-            <div class="space-y-2 text-xs">
+              <!-- Right Partition: Card Numbers & Card Selector -->
               <div>
-                <label class="block font-semibold mb-0.5 text-slate-700">Student Name:</label>
-                <input type="text" id="singleStudentName" placeholder="Student Name" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                <div class="flex justify-between items-center mb-1">
+                  <label class="block text-xs font-semibold text-slate-700">Card Number(s):</label>
+                  <select id="quickCardSelect" onchange="onQuickCardSelectChange(this.value)" class="p-0.5 border border-slate-300 rounded text-[11px] bg-white font-semibold text-slate-700" title="Select card number">
+                    <option value="">Select card...</option>
+                  </select>
+                </div>
+                <textarea id="studentCardsInput" rows="4" class="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900" placeholder="1&#10;2&#10;3"></textarea>
               </div>
-              <div>
-                <label class="block font-semibold mb-0.5 text-slate-700">Assigned Card Number:</label>
-                <input type="number" id="singleStudentCard" min="1" max="100" placeholder="Card #" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
-              </div>
-              <button onclick="addSingleStudentToGroup()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-lg font-bold transition">
-                Add to Group
-              </button>
             </div>
+
+            <button onclick="addStudentsToGroup()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white py-2 px-5 rounded-lg text-xs font-bold transition shadow-sm">
+              Add Student(s)
+            </button>
           </div>
         </div>
 
@@ -790,6 +796,61 @@
         select.value = folders[0];
         selectedFolder = folders[0];
       }
+      syncTargetFolderDropdown();
+    }
+
+    function onTargetFolderSelectChange() {
+      let select = document.getElementById('targetFolderSelect');
+      let input = document.getElementById('targetNewFolderInput');
+      if (!select || !input) return;
+
+      if (select.value === '__new__') {
+        input.classList.remove('hidden');
+        input.focus();
+      } else {
+        input.classList.add('hidden');
+      }
+    }
+
+    function getSelectedBulkFolder() {
+      let select = document.getElementById('targetFolderSelect');
+      let input = document.getElementById('targetNewFolderInput');
+      if (select && select.value === '__new__') {
+        return (input ? input.value.trim() : '') || "General";
+      }
+      return (select ? select.value : '') || "General";
+    }
+
+    function syncTargetFolderDropdown() {
+      let select = document.getElementById('targetFolderSelect');
+      if (!select) return;
+
+      let folders = appData.folders || [];
+      let currentVal = select.value || selectedFolder || "General";
+
+      select.innerHTML = '';
+      if (folders.length === 0) {
+        let optGen = document.createElement('option');
+        optGen.value = "General";
+        optGen.text = "General";
+        select.appendChild(optGen);
+      } else {
+        folders.forEach(f => {
+          let opt = document.createElement('option');
+          opt.value = f;
+          opt.text = f;
+          if (f === currentVal) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+
+      let newOpt = document.createElement('option');
+      newOpt.value = "__new__";
+      newOpt.text = "+ Create New Folder...";
+      if (currentVal === "__new__") newOpt.selected = true;
+      select.appendChild(newOpt);
+
+      onTargetFolderSelectChange();
     }
 
     function onFolderSelectChange() {
@@ -1552,7 +1613,7 @@
     // ---------------------------------------------------------------------
     function submitBulk() {
       let rawText = document.getElementById('bulkInput').value.trim();
-      let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
+      let folderName = getSelectedBulkFolder();
       if (!rawText) return;
       
       let existingQuestions = appData.questions || [];
@@ -1768,6 +1829,19 @@
         select.appendChild(opt);
       });
 
+      let quickCardSel = document.getElementById('quickCardSelect');
+      if (quickCardSel) {
+        let curVal = quickCardSel.value;
+        quickCardSel.innerHTML = '<option value="">Select card...</option>';
+        for (let i = 1; i <= 100; i++) {
+          let opt = document.createElement('option');
+          opt.value = String(i);
+          opt.text = `Card #${i}`;
+          if (String(i) === curVal) opt.selected = true;
+          quickCardSel.appendChild(opt);
+        }
+      }
+
       if (currentGroupName && groupsData[currentGroupName]) {
         document.getElementById('groupActiveArea').classList.remove('hidden');
         document.getElementById('activeGroupNameLabel').innerText = currentGroupName;
@@ -1814,51 +1888,66 @@
       renderGroupsTab();
     }
 
-    function bulkAddStudentsToGroup() {
+    function onQuickCardSelectChange(val) {
+      if (!val) return;
+      let startCard = parseInt(val, 10);
+      if (isNaN(startCard)) return;
+
+      let rawNames = (document.getElementById('studentNamesInput').value || '').trim();
+      let lines = rawNames ? rawNames.split('\n').map(l => l.trim()).filter(l => l.length > 0) : [];
+      let count = lines.length > 0 ? lines.length : 1;
+
+      let cardList = [];
+      for (let i = 0; i < count; i++) {
+        let cardNum = startCard + i;
+        if (cardNum <= 100) cardList.push(String(cardNum));
+      }
+      document.getElementById('studentCardsInput').value = cardList.join('\n');
+    }
+
+    function addStudentsToGroup() {
       if (!currentGroupName) return alert("Select a group first.");
-      let rawNames = document.getElementById('bulkStudentNames').value.trim();
-      if (!rawNames) return;
+      let rawNames = document.getElementById('studentNamesInput').value.trim();
+      if (!rawNames) return alert("Please enter at least one student name.");
 
       let names = rawNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      let rawCards = (document.getElementById('studentCardsInput').value || '').trim();
+      let cardLines = rawCards ? rawCards.split('\n').map(c => c.trim()).filter(c => c.length > 0) : [];
+
       let groupList = groupsData[currentGroupName] || [];
-
       let usedCards = new Set(groupList.map(s => parseInt(s.id, 10)));
-      let nextCard = 1;
+      let nextSequentialCard = 1;
 
-      names.forEach(name => {
-        while (usedCards.has(nextCard) && nextCard <= 100) {
-          nextCard++;
+      names.forEach((name, idx) => {
+        let assignedCard = null;
+        if (idx < cardLines.length) {
+          let parsed = parseInt(cardLines[idx], 10);
+          if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
+            assignedCard = parsed;
+          }
         }
-        if (nextCard <= 100) {
-          groupList.push({ id: String(nextCard), name: name });
-          usedCards.add(nextCard);
-          nextCard++;
+
+        if (assignedCard !== null) {
+          groupList = groupList.filter(s => parseInt(s.id, 10) !== assignedCard);
+          groupList.push({ id: String(assignedCard), name: name });
+          usedCards.add(assignedCard);
+        } else {
+          while (usedCards.has(nextSequentialCard) && nextSequentialCard <= 100) {
+            nextSequentialCard++;
+          }
+          if (nextSequentialCard <= 100) {
+            groupList.push({ id: String(nextSequentialCard), name: name });
+            usedCards.add(nextSequentialCard);
+            nextSequentialCard++;
+          }
         }
       });
 
       groupsData[currentGroupName] = groupList;
       localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
-      document.getElementById('bulkStudentNames').value = '';
-      renderGroupRosterTable();
-      syncGroupToRoster(groupList);
-    }
-
-    function addSingleStudentToGroup() {
-      if (!currentGroupName) return alert("Select a group first.");
-      let name = document.getElementById('singleStudentName').value.trim();
-      let cardNum = document.getElementById('singleStudentCard').value.trim();
-
-      if (!name || !cardNum) return alert("Enter both student name and card number.");
-
-      let groupList = groupsData[currentGroupName] || [];
-      groupList = groupList.filter(s => String(s.id) !== String(cardNum));
-      groupList.push({ id: String(cardNum), name: name });
-
-      groupsData[currentGroupName] = groupList;
-      localStorage.setItem('plickers_groups', JSON.stringify(groupsData));
-
-      document.getElementById('singleStudentName').value = '';
-      document.getElementById('singleStudentCard').value = '';
+      document.getElementById('studentNamesInput').value = '';
+      document.getElementById('studentCardsInput').value = '';
+      if (document.getElementById('quickCardSelect')) document.getElementById('quickCardSelect').value = '';
       renderGroupRosterTable();
       syncGroupToRoster(groupList);
     }
