@@ -175,14 +175,20 @@
             </div>
           </div>
 
-          <!-- Camera Controls & Audio Toggle -->
+          <!-- Camera Controls, Quality Selector & Audio Toggle -->
           <div class="mb-3 flex flex-wrap items-center gap-2">
-            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
+            <button onclick="startScanner()" style="background-color: #059669 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[90px]">
               ▶️ Start Camera
             </button>
-            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[100px]">
+            <button onclick="stopScanner()" style="background-color: #dc2626 !important; color: #ffffff !important;" class="flex-1 py-2 px-3 rounded-md font-bold text-xs shadow-md hover:opacity-90 transition min-w-[90px]">
               ⏹️ Stop Camera
             </button>
+            <select id="cameraResSelect" onchange="changeCameraResolution(this.value)" class="py-2 px-2 bg-white border border-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm" title="Camera Quality Setting">
+              <option value="max" selected>🎥 Quality: 4K / 1080p (Max)</option>
+              <option value="4k">🎥 Force 4K (3840×2160)</option>
+              <option value="1080p">🎥 Force 1080p (1920×1080)</option>
+              <option value="720p">🎥 720p HD</option>
+            </select>
             <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700" title="Toggle audio feedback on scan">
               🔔 Beep: ON
             </button>
@@ -192,6 +198,12 @@
           <div class="relative w-full bg-black rounded-lg overflow-hidden flex items-center justify-center border border-gray-700" style="min-height: 250px;">
             <video id="webcam-video" class="hidden" playsinline></video>
             <canvas id="qr-canvas" class="w-full h-full object-cover"></canvas>
+            
+            <!-- Live Camera Resolution Badge -->
+            <div id="cameraResBadge" class="hidden absolute top-2 left-2 bg-gray-900/80 backdrop-blur border border-gray-600 text-blue-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded shadow">
+              📷 1080p
+            </div>
+
             <div id="scanIndicator" class="hidden absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-extrabold px-2 py-1 rounded shadow animate-pulse">
               ✓ Scan Registered
             </div>
@@ -398,13 +410,15 @@
         <p class="mb-2 leading-relaxed">
           The teacher whispers or signals each student their secret number: 
           <b>1 = Top ⬆️</b>, <b>2 = Right ➡️</b>, <b>3 = Left ⬅️</b>, <b>4 = Bottom ⬇️</b>.
-          The student then directs their chosen answer (A, B, C, or D) to that specific side. 
-          Neighbors holding the same answer will hold their cards in completely different rotations!
+          The student holds the paper facing the camera and directs their chosen answer to that side:
+          <br>• <b>Right ➡️</b> = The student's right-hand side (appears on camera's Left).
+          <br>• <b>Left ⬅️</b> = The student's left-hand side (appears on camera's Right).
+          <br>• <b>Top ⬆️ / Bottom ⬇️</b> = Top and Bottom for both student and camera.
         </p>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center font-bold">
           <div class="p-1 bg-white border border-blue-200 rounded text-blue-800">1: Top ⬆️</div>
-          <div class="p-1 bg-white border border-emerald-200 rounded text-emerald-800">2: Right ➡️</div>
-          <div class="p-1 bg-white border border-amber-200 rounded text-amber-800">3: Left ⬅️</div>
+          <div class="p-1 bg-white border border-emerald-200 rounded text-emerald-800">2: Right ➡️ (Camera Left)</div>
+          <div class="p-1 bg-white border border-amber-200 rounded text-amber-800">3: Left ⬅️ (Camera Right)</div>
           <div class="p-1 bg-white border border-purple-200 rounded text-purple-800">4: Bottom ⬇️</div>
         </div>
       </div>
@@ -429,12 +443,17 @@
       activeCardsState[String(i)] = (i <= 10);
     }
 
-    // ANTI-CHEATING TARGET SIDES: 1 = Top, 2 = Right, 3 = Left, 4 = Bottom
+    // ANTI-CHEATING TARGET SIDES: 
+    // Perspective mapping:
+    // 1 = Top (Camera's Top)
+    // 2 = Right (Student's Right hand -> Camera's Left)
+    // 3 = Left (Student's Left hand -> Camera's Right)
+    // 4 = Bottom (Camera's Bottom)
     const SIDE_DEFINITIONS = {
-      1: { num: 1, key: "top", label: "Top (1)", arrow: "⬆️", badgeClass: "bg-blue-100 text-blue-800 border-blue-300" },
-      2: { num: 2, key: "right", label: "Right (2)", arrow: "➡️", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-      3: { num: 3, key: "left", label: "Left (3)", arrow: "⬅️", badgeClass: "bg-amber-100 text-amber-800 border-amber-300" },
-      4: { num: 4, key: "bottom", label: "Bottom (4)", arrow: "⬇️", badgeClass: "bg-purple-100 text-purple-800 border-purple-300" }
+      1: { num: 1, studentSide: "top", cameraSide: "top", label: "Top (1)", arrow: "⬆️", badgeClass: "bg-blue-100 text-blue-800 border-blue-300" },
+      2: { num: 2, studentSide: "right", cameraSide: "left", label: "Right (2)", arrow: "➡️", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+      3: { num: 3, studentSide: "left", cameraSide: "right", label: "Left (3)", arrow: "⬅️", badgeClass: "bg-amber-100 text-amber-800 border-amber-300" },
+      4: { num: 4, studentSide: "bottom", cameraSide: "bottom", label: "Bottom (4)", arrow: "⬇️", badgeClass: "bg-purple-100 text-purple-800 border-purple-300" }
     };
     let cardTargetSides = {}; // cardId (string) -> side number (1, 2, 3, 4)
 
@@ -450,6 +469,9 @@
     let revealCorrect = false;
     let revealDistribution = false; // By default hidden so students cannot peek at popular choices
     let audioEnabled = true;
+
+    // Quality setting: "max" (tries 4K then 1080p), "4k", "1080p", "720p"
+    let selectedCameraResolution = "max";
 
     let selectedFolder = "";
     let customQuestionOrder = null;
@@ -550,14 +572,13 @@
       }
     }
 
-    // Copies a clean cheat sheet to clipboard for the teacher
     function copySecretSidesSheet() {
       let activeStudents = getOrderedUniqueStudents().filter(s => activeCardsState[s.id]);
       if (activeStudents.length === 0) activeStudents = getOrderedUniqueStudents().slice(0, 30);
 
       let lines = [
         "=== PLICKERS SECRET TARGET SIDES CHEAT SHEET ===",
-        "Usage Rule: 1 = Top | 2 = Right | 3 = Left | 4 = Bottom\n"
+        "Usage Rule: 1 = Top | 2 = Right (Student's Right) | 3 = Left (Student's Left) | 4 = Bottom\n"
       ];
 
       activeStudents.forEach(s => {
@@ -573,27 +594,34 @@
       });
     }
 
-    // Determine which letter is chosen given physical rotation angle and student's secret target side
-    // Physical Card: A Top, B Left, C Bottom, D Right
+    // PERSPECTIVE-AWARE DIRECTION RESOLUTION:
+    // Physical Card Layout: A Top, B Left, C Bottom, D Right
+    // Student holds paper facing camera:
+    // - Student's Right is Camera's Left
+    // - Student's Left is Camera's Right
+    // - Student's Top is Camera's Top
+    // - Student's Bottom is Camera's Bottom
     function getAnswerForOrientation(angle, targetSideNum) {
-      let sideKey = (SIDE_DEFINITIONS[targetSideNum] || SIDE_DEFINITIONS[1]).key;
-      
-      let lettersAtSides;
+      let def = SIDE_DEFINITIONS[targetSideNum] || SIDE_DEFINITIONS[1];
+      let targetCameraSide = def.cameraSide; // 'top', 'bottom', 'left', or 'right'
+
+      // Map which letter is at each of the 4 CAMERA positions for this angle:
+      let cameraLetterMap;
       if (angle >= 315 || angle < 45) {
-        // Upright: A Top, D Right, C Bottom, B Left
-        lettersAtSides = { top: "A", right: "D", bottom: "C", left: "B" };
+        // Upright: A Top, B Left, C Bottom, D Right
+        cameraLetterMap = { top: "A", left: "B", bottom: "C", right: "D" };
       } else if (angle >= 45 && angle < 135) {
-        // 90° Clockwise: B Top, A Right, D Bottom, C Left
-        lettersAtSides = { top: "B", right: "A", bottom: "D", left: "C" };
+        // Rotated 90° clockwise: B Top, C Left, D Bottom, A Right
+        cameraLetterMap = { top: "B", left: "C", bottom: "D", right: "A" };
       } else if (angle >= 135 && angle < 225) {
-        // 180° Inverted: C Top, B Right, A Bottom, D Left
-        lettersAtSides = { top: "C", right: "B", bottom: "A", left: "D" };
+        // Rotated 180°: C Top, D Left, A Bottom, B Right
+        cameraLetterMap = { top: "C", left: "D", bottom: "A", right: "B" };
       } else {
-        // 270° Clockwise: D Top, C Right, B Bottom, A Left
-        lettersAtSides = { top: "D", right: "C", bottom: "B", left: "A" };
+        // Rotated 270° clockwise: D Top, A Left, B Bottom, C Right
+        cameraLetterMap = { top: "D", left: "A", bottom: "B", right: "C" };
       }
 
-      return lettersAtSides[sideKey] || "A";
+      return cameraLetterMap[targetCameraSide] || "A";
     }
 
     // HIGH LOUD BEEP FOR SUCCESSFUL SCANNING
@@ -1714,18 +1742,18 @@
           </div>
 
           <!-- USAGE RULE BOX EXPLAINING 1=TOP, 2=RIGHT, 3=LEFT, 4=BOTTOM -->
-          <div style="margin-top: 1.5rem; border: 2.5px dashed #1f2937; border-radius: 12px; padding: 12px 18px; max-width: 480px; text-align: center; background: #f9fafb; color: #111827; box-sizing: border-box;">
+          <div style="margin-top: 1.25rem; border: 2.5px dashed #1f2937; border-radius: 12px; padding: 12px 18px; max-width: 480px; text-align: center; background: #f9fafb; color: #111827; box-sizing: border-box;">
             <div style="font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; color: #1e40af;">
-              📌 Student Rule / Yo'riqnoma:
+              📌 Student Rule / O'quvchi Qoidasi:
             </div>
-            <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">
-              Direct your chosen answer (A, B, C, or D) to your assigned side:
+            <div style="font-size: 12.5px; font-weight: 700; margin-bottom: 6px; line-height: 1.4;">
+              Hold your card facing the camera. Turn your chosen answer (A, B, C, or D) to your assigned side:
             </div>
-            <div style="display: flex; justify-content: space-around; font-size: 13px; font-weight: 900; background: white; border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 10px;">
-              <span><b>1</b> = TOP ⬆️</span>
-              <span><b>2</b> = RIGHT ➡️</span>
-              <span><b>3</b> = LEFT ⬅️</span>
-              <span><b>4</b> = BOTTOM ⬇️</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12.5px; font-weight: 900; background: white; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 12px;">
+              <span><b>1</b> = TOP ⬆️ (Yuqori)</span>
+              <span><b>2</b> = RIGHT ➡️ (Your Right / Camera's Left)</span>
+              <span><b>3</b> = LEFT ⬅️ (Your Left / Camera's Right)</span>
+              <span><b>4</b> = BOTTOM ⬇️ (Past)</span>
             </div>
           </div>
         `;
@@ -1746,24 +1774,97 @@
     }
 
     /* -------------------------------------------------------------
-       ROTATION-AWARE CAMERA ENGINE (jsQR) WITH ANTI-CHEAT SIDES
+       ROTATION-AWARE CAMERA ENGINE (jsQR) WITH 1080p/4K SUPPORT
     ------------------------------------------------------------- */
+    function changeCameraResolution(val) {
+      selectedCameraResolution = val;
+      if (isScannerRunning) {
+        startScanner();
+      }
+    }
+
     async function startScanner() {
       if (isScannerRunning) await stopScanner();
       
       const video = document.getElementById('webcam-video');
+      const resBadge = document.getElementById('cameraResBadge');
+      
+      // Tiered constraint strategy: 4K (3840x2160) -> 1080p (1920x1080) -> fallback
+      let constraintsList = [];
+      if (selectedCameraResolution === "4k") {
+        constraintsList = [
+          { video: { facingMode: "environment", width: { ideal: 3840, min: 2560 }, height: { ideal: 2160, min: 1440 } } },
+          { video: { facingMode: "environment", width: { ideal: 3840 }, height: { ideal: 2160 } } }
+        ];
+      } else if (selectedCameraResolution === "1080p") {
+        constraintsList = [
+          { video: { facingMode: "environment", width: { ideal: 1920, min: 1920 }, height: { ideal: 1080, min: 1080 } } },
+          { video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } }
+        ];
+      } else if (selectedCameraResolution === "720p") {
+        constraintsList = [
+          { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } }
+        ];
+      } else {
+        // "max": Attempt 4K Ultra HD first, fallback to Full HD 1080p, then whatever camera offers
+        constraintsList = [
+          { video: { facingMode: "environment", width: { ideal: 3840 }, height: { ideal: 2160 } } },
+          { video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } },
+          { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } },
+          { video: { facingMode: "environment" } }
+        ];
+      }
+
+      let stream = null;
+      for (let constraints of constraintsList) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (stream) break;
+        } catch (e) {
+          // Try next constraint
+        }
+      }
+
+      if (!stream) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (err) {
+          return alert("Camera initialization failed: " + err);
+        }
+      }
+
       try {
-        videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
+        videoStream = stream;
         video.srcObject = videoStream;
         video.setAttribute("playsinline", true);
         await video.play();
-        
+
+        // Detect and display actual live camera resolution
+        let track = videoStream.getVideoTracks()[0];
+        let settings = track && track.getSettings ? track.getSettings() : {};
+        let actualW = settings.width || video.videoWidth || 0;
+        let actualH = settings.height || video.videoHeight || 0;
+
+        let qualityLabel = "HD";
+        if (actualW >= 3840 || actualH >= 2160) {
+          qualityLabel = "4K UHD";
+        } else if (actualW >= 1920 || actualH >= 1080) {
+          qualityLabel = "1080p Full HD";
+        } else if (actualW >= 1280 || actualH >= 720) {
+          qualityLabel = "720p HD";
+        } else if (actualW > 0) {
+          qualityLabel = `${actualW}×${actualH}`;
+        }
+
+        if (resBadge) {
+          resBadge.innerText = `📷 ${actualW ? actualW + "×" + actualH + " (" + qualityLabel + ")" : qualityLabel}`;
+          resBadge.classList.remove('hidden');
+        }
+
         isScannerRunning = true;
         scanAnimationId = requestAnimationFrame(tickScanner);
       } catch (err) {
-        alert("Camera initialization failed: " + err);
+        alert("Camera start error: " + err);
       }
     }
 
@@ -1782,6 +1883,9 @@
       const canvas = document.getElementById('qr-canvas');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const resBadge = document.getElementById('cameraResBadge');
+      if (resBadge) resBadge.classList.add('hidden');
     }
 
     function tickScanner() {
@@ -1857,7 +1961,9 @@
       let angle = Math.atan2(dy, dx) * (180 / Math.PI);
       if (angle < 0) angle += 360;
 
-      // ANTI-CHEATING RESOLUTION: Lookup student's secret target side and evaluate answer
+      // PERSPECTIVE-AWARE EVALUATION:
+      // Evaluates student answer based on student's secret side:
+      // 1: Top (Camera Top), 2: Right (Camera Left), 3: Left (Camera Right), 4: Bottom (Camera Bottom)
       let targetSideNum = getCardTargetSide(studentId);
       let selectedAnswer = getAnswerForOrientation(angle, targetSideNum);
 
