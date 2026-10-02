@@ -335,94 +335,12 @@
       <div class="flex justify-between items-center mb-4 flex-wrap gap-2 pb-3 border-b border-slate-100">
         <div>
           <h2 class="text-base font-bold text-slate-900 tracking-tight">Question Management</h2>
-          <p class="text-xs text-slate-500">Add questions individually, import in bulk, or organize into folders.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="loadDemoQuestions()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-1.5 rounded-lg font-semibold shadow-sm transition">
-            Load Sample Questions
-          </button>
+          <p class="text-xs text-slate-500">Add questions and organize them into folders.</p>
         </div>
       </div>
 
-      <!-- CREATION METHOD TOGGLES -->
-      <div class="flex border-b border-slate-200 mb-4 text-xs font-semibold">
-        <button id="btnTabSingle" onclick="switchQuestionMode('single')" class="py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 transition">
-          Add Single Question
-        </button>
-        <button id="btnTabBulk" onclick="switchQuestionMode('bulk')" class="py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
-          Bulk Import
-        </button>
-      </div>
-
-      <!-- MODE 1: SINGLE QUESTION FORM -->
-      <div id="panel-single-question" class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl">
-        <div class="space-y-3">
-          
-          <!-- Folder Select / Create -->
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder:</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <select id="singleQFolderSelect" onchange="onSingleQFolderChange()" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900">
-                <option value="General">General</option>
-                <option value="__new__">+ Create New Folder...</option>
-              </select>
-              <input type="text" id="singleQNewFolderInput" class="hidden w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium focus:ring-1 focus:ring-slate-900" placeholder="Type new folder name...">
-            </div>
-          </div>
-
-          <!-- Question Text -->
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Question Text: <span class="text-rose-500">*</span></label>
-            <textarea id="singleQText" rows="2" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Enter question prompt..."></textarea>
-          </div>
-
-          <!-- Choices A, B, C, D -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Option A: <span class="text-rose-500">*</span></label>
-              <input type="text" id="singleQOptA" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice A">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Option B: <span class="text-rose-500">*</span></label>
-              <input type="text" id="singleQOptB" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice B">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Option C (Optional):</label>
-              <input type="text" id="singleQOptC" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice C">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Option D (Optional):</label>
-              <input type="text" id="singleQOptD" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Choice D">
-            </div>
-          </div>
-
-          <!-- Correct Key & Explanation -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Correct Answer: <span class="text-rose-500">*</span></label>
-              <select id="singleQCorrect" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white font-bold focus:ring-1 focus:ring-slate-900">
-                <option value="A">Option A</option>
-                <option value="B">Option B</option>
-                <option value="C">Option C</option>
-                <option value="D">Option D</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Explanation (Optional):</label>
-              <input type="text" id="singleQExplanation" class="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-slate-900" placeholder="Helpful explanation or hint for students">
-            </div>
-          </div>
-
-          <div class="pt-2">
-            <button onclick="submitSingleQuestion()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-sm transition">
-              Save Question
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MODE 2: BULK IMPORT FORM -->
-      <div id="panel-bulk-question" class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl hidden">
+      <!-- QUESTION INPUT FORM -->
+      <div class="mb-5 bg-slate-50/70 border border-slate-200 p-4 rounded-xl">
         <div class="space-y-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Target Folder Name:</label>
@@ -432,7 +350,7 @@
           <div>
             <div class="flex justify-between items-center mb-1">
               <label class="block text-xs font-bold text-slate-700">
-                Bulk Paste Area:
+                Questions:
               </label>
               <span class="text-[11px] text-slate-500 font-mono">Format: Question | A | B | C | D | Correct | Explanation</span>
             </div>
@@ -440,7 +358,7 @@
           </div>
 
           <button onclick="submitBulk()" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-5 rounded-lg shadow-sm transition">
-            Import Bulk Questions
+            Add the Question(s)
           </button>
         </div>
       </div>
@@ -690,8 +608,8 @@
     // Physical card edges:
     // - Edge A is Top (between topLeft and topRight)
     // - Edge B is Left (between topLeft and bottomLeft)
-    // - Edge C is Bottom (between bottomLeft and bottomRight)
-    // - Edge D is Right (between topRight and bottomRight)
+    // - Edge D is Bottom (between bottomLeft and bottomRight)
+    // - Edge C is Right (between topRight and bottomRight)
     // Whichever edge faces the TOP (lowest Y coordinate towards ceiling) is the student's chosen answer!
     function getAnswerFromQRLocation(location) {
       let tl = location.topLeftCorner;
@@ -701,8 +619,8 @@
 
       let yA = (tl.y + tr.y) / 2;
       let yB = (tl.y + bl.y) / 2;
-      let yC = (bl.y + br.y) / 2;
-      let yD = (tr.y + br.y) / 2;
+      let yD = (bl.y + br.y) / 2;
+      let yC = (tr.y + br.y) / 2;
 
       let candidates = [
         { letter: 'A', y: yA },
@@ -871,51 +789,6 @@
       if (!currentVal && folders.length > 0) {
         select.value = folders[0];
         selectedFolder = folders[0];
-      }
-      syncSingleQFolderDropdown();
-    }
-
-    function syncSingleQFolderDropdown() {
-      let select = document.getElementById('singleQFolderSelect');
-      if (!select) return;
-      let folders = appData.folders || [];
-      let currentVal = select.value || selectedFolder || "General";
-
-      select.innerHTML = '';
-      if (folders.length === 0) {
-        let optGen = document.createElement('option');
-        optGen.value = "General";
-        optGen.text = "General";
-        select.appendChild(optGen);
-      } else {
-        folders.forEach(f => {
-          let opt = document.createElement('option');
-          opt.value = f;
-          opt.text = f;
-          if (f === currentVal) opt.selected = true;
-          select.appendChild(opt);
-        });
-      }
-
-      let newOpt = document.createElement('option');
-      newOpt.value = "__new__";
-      newOpt.text = "+ Create New Folder...";
-      if (currentVal === "__new__") newOpt.selected = true;
-      select.appendChild(newOpt);
-
-      onSingleQFolderChange();
-    }
-
-    function onSingleQFolderChange() {
-      let select = document.getElementById('singleQFolderSelect');
-      let input = document.getElementById('singleQNewFolderInput');
-      if (!select || !input) return;
-
-      if (select.value === '__new__') {
-        input.classList.remove('hidden');
-        input.focus();
-      } else {
-        input.classList.add('hidden');
       }
     }
 
@@ -1474,16 +1347,10 @@
           </li>`;
         } else {
           return `<li class="p-2.5 border rounded-lg flex justify-between items-center bg-slate-50 border-slate-200 text-slate-800">
-            <div>
-              <div class="flex items-center gap-1.5">
-                <span class="font-bold">${escapeHtml(l.studentName)}</span>
-                <span class="text-[11px] text-slate-500">(Card #${sid})</span>
-                <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-medium">Recorded</span>
-              </div>
-              <div class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
-                <span>Selected:</span>
-                ${answerSelectHtml}
-              </div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold">${escapeHtml(l.studentName)}</span>
+              <span class="text-[11px] text-slate-500 font-medium">(Card #${sid})</span>
+              <span class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium">Recorded</span>
             </div>
             <button onclick="toggleRevealSingle('${sid}')" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-800 px-2.5 py-1 rounded font-semibold transition">Reveal</button>
           </li>`;
@@ -1683,87 +1550,6 @@
     // ---------------------------------------------------------------------
     // QUESTION CREATOR & FOLDER MANAGEMENT
     // ---------------------------------------------------------------------
-    function switchQuestionMode(mode) {
-      document.getElementById('panel-single-question').classList.toggle('hidden', mode !== 'single');
-      document.getElementById('panel-bulk-question').classList.toggle('hidden', mode !== 'bulk');
-      
-      let btnSingle = document.getElementById('btnTabSingle');
-      let btnBulk = document.getElementById('btnTabBulk');
-
-      if (mode === 'single') {
-        btnSingle.className = "py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 font-bold transition";
-        btnBulk.className = "py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-semibold transition";
-      } else {
-        btnBulk.className = "py-2.5 px-4 border-b-2 border-slate-900 text-slate-900 font-bold transition";
-        btnSingle.className = "py-2.5 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-semibold transition";
-      }
-    }
-
-    function getSelectedQuestionFolder() {
-      let select = document.getElementById('singleQFolderSelect');
-      let input = document.getElementById('singleQNewFolderInput');
-      if (select && select.value === '__new__') {
-        return (input ? input.value.trim() : '') || "General";
-      }
-      return (select ? select.value : '') || "General";
-    }
-
-    function submitSingleQuestion() {
-      let folderName = getSelectedQuestionFolder();
-      let text = document.getElementById('singleQText').value.trim();
-      let a = document.getElementById('singleQOptA').value.trim();
-      let b = document.getElementById('singleQOptB').value.trim();
-      let c = document.getElementById('singleQOptC').value.trim();
-      let d = document.getElementById('singleQOptD').value.trim();
-      let correct = document.getElementById('singleQCorrect').value;
-      let explanation = document.getElementById('singleQExplanation').value.trim();
-
-      if (!text || !a || !b) {
-        alert("Please enter the question text and at least Options A and B.");
-        return;
-      }
-
-      let existingQuestions = appData.questions || [];
-      let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
-      let maxId = 0;
-      folderQuestions.forEach(q => {
-        let parsed = parseInt(q.id, 10);
-        if (!isNaN(parsed) && parsed > maxId) maxId = parsed;
-      });
-      let nextId = String(maxId + 1);
-
-      let newQuestion = {
-        id: nextId,
-        text: text,
-        a: a,
-        b: b,
-        c: c,
-        d: d,
-        correct: correct,
-        folder: folderName,
-        explanation: explanation
-      };
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'addBulkQuestions', folderName: folderName, questionsList: [newQuestion] })
-      }).then(() => {
-        alert(`Question added successfully to folder "${folderName}".`);
-        document.getElementById('singleQText').value = '';
-        document.getElementById('singleQOptA').value = '';
-        document.getElementById('singleQOptB').value = '';
-        document.getElementById('singleQOptC').value = '';
-        document.getElementById('singleQOptD').value = '';
-        document.getElementById('singleQExplanation').value = '';
-        selectedFolder = folderName;
-        loadData();
-      }).catch(err => {
-        console.error("Error adding question:", err);
-        alert("Failed to save question: " + err);
-      });
-    }
-
     function submitBulk() {
       let rawText = document.getElementById('bulkInput').value.trim();
       let folderName = document.getElementById('targetFolderInput').value.trim() || "General";
@@ -1890,15 +1676,6 @@
 
         container.appendChild(folderBox);
       });
-    }
-
-    function loadDemoQuestions() {
-      document.getElementById('targetFolderInput').value = "English Grammar";
-      document.getElementById('bulkInput').value = 
-        "She ___ to school every morning. | go | goes | is go | gone | B | 'She' is 3rd person singular present simple.\n" +
-        "They ___ soccer yesterday afternoon. | played | play | playing | plays | A | Past simple tense requires '-ed'.\n" +
-        "Which word is a noun? | Quick | Run | Apple | Beautiful | C | 'Apple' is a concrete object noun.";
-      switchQuestionMode('bulk');
     }
 
     function deleteQuestion(qId, folderName) {
@@ -2164,16 +1941,16 @@
           
           <div class="w-full border-2 border-black p-2 bg-white flex flex-col justify-between items-center relative my-1 rounded">
             <!-- TOP: A -->
-            <div class="font-extrabold text-sm text-black">A</div>
+            <div class="font-extrabold text-sm text-black" style="display:inline-block; transform: rotate(0deg);">A</div>
             <div class="flex justify-between items-center w-full my-1">
               <!-- LEFT: B -->
-              <span class="font-extrabold text-sm text-black pr-1">B</span>
+              <span class="font-extrabold text-sm text-black pr-1" style="display:inline-block; transform: rotate(270deg);">B</span>
               <div id="card-qr-${s.id}" class="flex justify-center items-center"></div>
-              <!-- RIGHT: D -->
-              <span class="font-extrabold text-sm text-black pl-1">D</span>
+              <!-- RIGHT: C -->
+              <span class="font-extrabold text-sm text-black pl-1" style="display:inline-block; transform: rotate(90deg);">C</span>
             </div>
-            <!-- BOTTOM: C -->
-            <div class="font-extrabold text-sm text-black">C</div>
+            <!-- BOTTOM: D -->
+            <div class="font-extrabold text-sm text-black" style="display:inline-block; transform: rotate(180deg);">D</div>
           </div>
         `;
         container.appendChild(cardDiv);
@@ -2209,16 +1986,16 @@
           
           <div style="border: 6px solid black; padding: 1.25rem; background: white; border-radius: 1.25rem; display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 440px; height: 440px; box-sizing: border-box;">
             <!-- TOP: A -->
-            <div style="font-size: 2.5rem; font-weight: 900; line-height: 1;">A</div>
+            <div style="font-size: 2.5rem; font-weight: 900; line-height: 1; display: inline-block; transform: rotate(0deg);">A</div>
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
               <!-- LEFT: B -->
-              <span style="font-size: 2.5rem; font-weight: 900; line-height: 1;">B</span>
+              <span style="font-size: 2.5rem; font-weight: 900; line-height: 1; display: inline-block; transform: rotate(270deg);">B</span>
               <div id="print-qr-${s.id}"></div>
-              <!-- RIGHT: D -->
-              <span style="font-size: 2.5rem; font-weight: 900; line-height: 1;">D</span>
+              <!-- RIGHT: C -->
+              <span style="font-size: 2.5rem; font-weight: 900; line-height: 1; display: inline-block; transform: rotate(90deg);">C</span>
             </div>
-            <!-- BOTTOM: C -->
-            <div style="font-size: 2.5rem; font-weight: 900; line-height: 1;">C</div>
+            <!-- BOTTOM: D -->
+            <div style="font-size: 2.5rem; font-weight: 900; line-height: 1; display: inline-block; transform: rotate(180deg);">D</div>
           </div>
         `;
 
