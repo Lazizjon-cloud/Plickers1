@@ -201,10 +201,6 @@
               <option value="4k">🎥 4K Ultra HD</option>
               <option value="max">🎥 Max Available</option>
             </select>
-            <!-- Mirror Flip Toggle for Front/Opposite Perspective -->
-            <button onclick="toggleCameraFlip()" id="btnFlipToggle" class="px-2 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm" title="Toggle horizontal mirror if webcam inverts left and right">
-              🪞 Flip: Normal
-            </button>
             <button onclick="toggleAudioBeep()" id="btnAudioToggle" class="px-2 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm" title="Toggle audio feedback on scan">
               🔔 Beep: ON
             </button>
@@ -378,13 +374,7 @@
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 bg-white p-2.5 rounded-lg border">
             <div>
               <label class="block text-[11px] font-bold text-gray-700 mb-1">Number of Questions:</label>
-              <select id="aiNumQuestions" class="w-full p-1.5 border rounded text-xs bg-white font-bold text-gray-800">
-                <option value="3">3 Questions</option>
-                <option value="5" selected>5 Questions</option>
-                <option value="10">10 Questions</option>
-                <option value="15">15 Questions</option>
-                <option value="20">20 Questions</option>
-              </select>
+              <input type="number" id="aiNumQuestions" min="1" max="50" value="5" class="w-full p-1.5 border rounded text-xs font-bold text-gray-800 bg-white" placeholder="e.g. 5">
             </div>
 
             <div>
@@ -406,8 +396,12 @@
             </div>
 
             <div>
-              <label class="block text-[11px] font-bold text-gray-700 mb-1">Target Folder Name:</label>
-              <input type="text" id="aiTargetFolder" class="w-full p-1.5 border rounded text-xs font-bold text-gray-800" value="General" placeholder="Folder name">
+              <label class="block text-[11px] font-bold text-gray-700 mb-1">Target Folder:</label>
+              <select id="aiFolderSelect" onchange="onAiFolderSelectChange()" class="w-full p-1.5 border rounded text-xs font-bold text-gray-800 bg-white">
+                <option value="General">General</option>
+                <option value="__new__">➕ Create New Folder...</option>
+              </select>
+              <input type="text" id="aiNewFolderInput" class="hidden w-full mt-1.5 p-1.5 border border-blue-400 rounded text-xs font-bold text-gray-800 bg-white shadow-sm" placeholder="Enter new folder name...">
             </div>
           </div>
 
@@ -558,26 +552,13 @@
         <div>
           <h2 class="text-md font-bold text-gray-800 flex items-center gap-1.5">
             <span>Student Cards</span>
-            <span class="text-[10px] bg-blue-100 text-blue-800 font-extrabold px-2 py-0.5 rounded-full">Standard Plickers</span>
           </h2>
-          <p class="text-xs text-gray-500">Each student points their chosen answer (A, B, C, or D) to the TOP ⬆️.</p>
         </div>
         <div>
           <button onclick="printActiveCards()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded shadow transition flex items-center gap-1">
             🖨️ Print Active Cards
           </button>
         </div>
-      </div>
-
-      <!-- Simple Student Rule Explanation -->
-      <div class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
-        <div class="font-extrabold text-blue-800 mb-1 flex items-center gap-1">
-          <span>📌 How to Answer / Javob berish qoidasi:</span>
-        </div>
-        <p class="leading-relaxed">
-          The student holds the card facing the camera and rotates the card so that their chosen answer (<b>A</b>, <b>B</b>, <b>C</b>, or <b>D</b>) is facing the <b>TOP ⬆️</b> (towards the ceiling). 
-          The camera automatically registers whichever letter is at the top.
-        </p>
       </div>
 
       <div id="cardsContainer" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto p-1"></div>
@@ -714,8 +695,6 @@
 
     // Quality setting: Defaults to "720p"
     let selectedCameraResolution = "720p";
-    // Horizontal Mirror Flip (for front webcams if needed)
-    let isCameraFlipped = (localStorage.getItem('plickers_camera_flipped') === 'true');
 
     let selectedFolder = "";
     let customQuestionOrder = null;
@@ -734,27 +713,10 @@
 
     window.onload = function() { 
       currentGroupName = localStorage.getItem('plickers_active_group') || "";
-      updateFlipButtonUI();
       updateApiKeyButtonUI();
       loadData(); 
       setInterval(syncState, 2500); 
     };
-
-    function toggleCameraFlip() {
-      isCameraFlipped = !isCameraFlipped;
-      localStorage.setItem('plickers_camera_flipped', isCameraFlipped);
-      updateFlipButtonUI();
-    }
-
-    function updateFlipButtonUI() {
-      let btn = document.getElementById('btnFlipToggle');
-      if (btn) {
-        btn.innerText = isCameraFlipped ? "🪞 Flip: Inverted" : "🪞 Flip: Normal";
-        btn.className = isCameraFlipped 
-          ? "px-2 py-1.5 bg-amber-200 hover:bg-amber-300 rounded text-xs font-bold text-amber-900 shadow-sm"
-          : "px-2 py-1.5 bg-gray-200 hover:bg-gray-300 rounded text-xs font-bold text-gray-700 shadow-sm";
-      }
-    }
 
     // ---------------------------------------------------------------------
     // ORIENTATION DETECTION: OPTION FACING TOP IS ACCEPTED AS ANSWER
@@ -934,6 +896,7 @@
         select.value = folders[0];
         selectedFolder = folders[0];
       }
+      renderAiFolderSelect();
     }
 
     function onFolderSelectChange() {
@@ -2034,10 +1997,6 @@
             <!-- BOTTOM: C -->
             <div class="font-extrabold text-sm text-black">C</div>
           </div>
-
-          <div class="text-[10px] text-gray-500 font-bold mt-0.5">
-            Point chosen answer to TOP ⬆️
-          </div>
         `;
         container.appendChild(cardDiv);
         new QRCode(document.getElementById(`card-qr-${s.id}`), { text: String(s.id), width: 75, height: 75 });
@@ -2082,17 +2041,6 @@
             </div>
             <!-- BOTTOM: C -->
             <div style="font-size: 2.5rem; font-weight: 900; line-height: 1;">C</div>
-          </div>
-
-          <!-- USAGE RULE BOX EXPLAINING OPTION ON TOP IS ACCEPTED AS ANSWER -->
-          <div style="margin-top: 1.25rem; border: 2.5px solid #2563eb; border-radius: 12px; padding: 12px 18px; max-width: 480px; text-align: center; background: #eff6ff; color: #1e3a8a; box-sizing: border-box;">
-            <div style="font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; color: #1d4ed8;">
-              📌 Student Rule / O'quvchi Qoidasi:
-            </div>
-            <div style="font-size: 13px; font-weight: 700; line-height: 1.5;">
-              Hold your card facing the camera. Turn your chosen answer (<b>A</b>, <b>B</b>, <b>C</b>, or <b>D</b>) to the <b>TOP ⬆️</b>.
-              <br><span style="font-size: 12px; color: #475569;">Kartani kameraga qarating. Tanlagan javobingizni (A, B, C yoki D) <b>TEPAGA ⬆️</b> qaratib ushlang.</span>
-            </div>
           </div>
         `;
 
@@ -2559,6 +2507,60 @@
       return questions;
     }
 
+    function renderAiFolderSelect() {
+      let select = document.getElementById('aiFolderSelect');
+      if (!select) return;
+
+      let folders = appData.folders || [];
+      let currentVal = select.value || selectedFolder || "General";
+
+      select.innerHTML = '';
+      if (folders.length === 0) {
+        let optGen = document.createElement('option');
+        optGen.value = "General";
+        optGen.text = "General";
+        select.appendChild(optGen);
+      } else {
+        folders.forEach(f => {
+          let opt = document.createElement('option');
+          opt.value = f;
+          opt.text = f;
+          if (f === currentVal) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+
+      let newOpt = document.createElement('option');
+      newOpt.value = "__new__";
+      newOpt.text = "➕ Create New Folder...";
+      if (currentVal === "__new__") newOpt.selected = true;
+      select.appendChild(newOpt);
+
+      onAiFolderSelectChange();
+    }
+
+    function onAiFolderSelectChange() {
+      let select = document.getElementById('aiFolderSelect');
+      let input = document.getElementById('aiNewFolderInput');
+      if (!select || !input) return;
+
+      if (select.value === '__new__') {
+        input.classList.remove('hidden');
+        input.focus();
+      } else {
+        input.classList.add('hidden');
+      }
+    }
+
+    function getSelectedAiFolder() {
+      let select = document.getElementById('aiFolderSelect');
+      let input = document.getElementById('aiNewFolderInput');
+      if (select && select.value === '__new__') {
+        return (input ? input.value.trim() : '') || "General";
+      }
+      return (select ? select.value : '') || "General";
+    }
+
     async function callGeminiGenerateQuestions({ promptContent, numQuestions, numOptions, complexity, folderName }) {
       const apiKey = getSavedGeminiKey();
       if (!apiKey) throw new Error("NO_API_KEY");
@@ -2572,7 +2574,12 @@ Specifications:
 - Return ONLY a valid JSON array of objects with keys: "text", "a", "b", "c", "d", "correct" (uppercase letter "A", "B", "C", or "D"), "explanation".
 - If ${numOptions} is 2, set "c": "" and "d": "". If ${numOptions} is 3, set "d": "".`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const candidateModels = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash"
+      ];
 
       const bodyData = {
         contents: [
@@ -2589,32 +2596,53 @@ Specifications:
         }
       };
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyData)
-      });
+      let lastError = null;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+      for (let model of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyData)
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            lastError = new Error(`Gemini API (${model} error ${response.status}): ${errorText}`);
+            // If model not found (404), fall back to next model
+            if (response.status === 404) {
+              console.warn(`Model ${model} returned 404, trying next candidate...`);
+              continue;
+            } else {
+              throw lastError;
+            }
+          }
+
+          const resJson = await response.json();
+          const textOut = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!textOut) throw new Error("Gemini returned empty output.");
+
+          let parsed = JSON.parse(textOut);
+          if (parsed.questions && Array.isArray(parsed.questions)) parsed = parsed.questions;
+          if (!Array.isArray(parsed)) throw new Error("Expected a JSON array of questions.");
+          return parsed;
+        } catch (err) {
+          lastError = err;
+          if (!err.message || !err.message.includes("404")) {
+            throw err;
+          }
+        }
       }
 
-      const resJson = await response.json();
-      const textOut = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!textOut) throw new Error("Gemini returned empty output.");
-
-      let parsed = JSON.parse(textOut);
-      if (parsed.questions && Array.isArray(parsed.questions)) parsed = parsed.questions;
-      if (!Array.isArray(parsed)) throw new Error("Expected a JSON array of questions.");
-      return parsed;
+      throw lastError || new Error("All Gemini models failed. Please verify your API key.");
     }
 
     async function startAiGeneration() {
       const numQuestions = parseInt(document.getElementById('aiNumQuestions').value, 10) || 5;
       const numOptions = parseInt(document.getElementById('aiNumOptions').value, 10) || 4;
       const complexity = document.getElementById('aiComplexity').value || "Medium";
-      const targetFolder = document.getElementById('aiTargetFolder').value.trim() || "General";
+      const targetFolder = getSelectedAiFolder();
 
       let promptContent = "";
       if (currentAiInputMode === 'doc') {
@@ -2793,7 +2821,7 @@ Specifications:
         return;
       }
 
-      let folderName = document.getElementById('aiTargetFolder').value.trim() || "General";
+      let folderName = getSelectedAiFolder();
       let existingQuestions = appData.questions || [];
       let folderQuestions = existingQuestions.filter(q => (q.folder || "General") === folderName);
       let maxId = 0;
